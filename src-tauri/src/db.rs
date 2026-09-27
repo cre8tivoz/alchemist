@@ -19,6 +19,8 @@ pub fn open_vault(path: &str) -> Result<VaultSummary, AppError> {
         return Err(AppError::NotFound(format!("File not found: {}", path)));
     }
 
+    validate_db_path(db_path)?;
+
     let conn = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
@@ -178,7 +180,54 @@ pub fn import_tabular_file(path: &str) -> Result<String, AppError> {
 
 // ---- Internal helpers ----
 
+fn validate_db_path(path: &Path) -> Result<(), AppError> {
+    let path_str = path.to_string_lossy().to_lowercase();
+    if path_str.ends_with(".sqlite") || path_str.ends_with(".db") || path_str.ends_with(".sqlite3") {
+        return Ok(());
+    }
+
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        let ext_lower = ext.to_lowercase();
+        if ext_lower == "sqlite" || ext_lower == "db" || ext_lower == "sqlite3" {
+            return Ok(());
+        }
+    }
+
+    let alchemist_dir = crate::paths::user_home().join(".alchemist");
+    let temp_dir = std::env::temp_dir();
+
+    if let Ok(canon_path) = path.canonicalize() {
+        if let Ok(canon_alchemist) = alchemist_dir.canonicalize() {
+            if canon_path.starts_with(&canon_alchemist) {
+                return Ok(());
+            }
+        } else if canon_path.starts_with(&alchemist_dir) {
+            return Ok(());
+        }
+
+        if let Ok(canon_temp) = temp_dir.canonicalize() {
+            if canon_path.starts_with(&canon_temp) {
+                return Ok(());
+            }
+        } else if canon_path.starts_with(&temp_dir) {
+            return Ok(());
+        }
+    } else {
+        if path.starts_with(&alchemist_dir) || path.starts_with(&temp_dir) {
+            return Ok(());
+        }
+    }
+
+    Err(AppError::Validation(format!(
+        "Invalid database file path: {}. Path must end with .sqlite, .db, or .sqlite3, or be located within a permitted directory.",
+        path.display()
+    )))
+}
+
 fn open_connection(path: &str) -> Result<Connection, AppError> {
+    let db_path = Path::new(path);
+    validate_db_path(db_path)?;
+
     Ok(Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
@@ -725,5 +774,28 @@ mod tests {
             result.rows[0][0],
             serde_json::Value::String("secret".to_string())
         );
+    }
+
+    #[test]
+    fn validate_db_path_accepts_valid_extensions_and_dirs() {
+        assert!(validate_db_path(Path::new("/some/path/data.db")).is_ok());
+        assert!(validate_db_path(Path::new("/some/path/data.sqlite")).is_ok());
+        assert!(validate_db_path(Path::new("/some/path/data.sqlite3")).is_ok());
+        assert!(validate_db_path(Path::new("/SOME/PATH/DATA.DB")).is_ok());
+
+        let temp_file = std::env::temp_dir().join("test_without_ext");
+        assert!(validate_db_path(&temp_file).is_ok());
+
+        let alchemist_file = crate::paths::user_home().join(".alchemist").join("test_without_ext");
+        assert!(validate_db_path(&alchemist_file).is_ok());
+    }
+
+    #[test]
+    fn validate_db_path_rejects_invalid_file_paths() {
+        let bad_path = Path::new("/etc/passwd");
+        assert!(validate_db_path(bad_path).is_err());
+
+        let bad_txt = Path::new("/home/user/secret.txt");
+        assert!(validate_db_path(bad_txt).is_err());
     }
 }
