@@ -181,6 +181,11 @@ pub fn import_tabular_file(path: &str) -> Result<String, AppError> {
 // ---- Internal helpers ----
 
 fn validate_db_path(path: &Path) -> Result<(), AppError> {
+    let path_str = path.to_string_lossy().to_lowercase();
+    if path_str.ends_with(".sqlite") || path_str.ends_with(".db") || path_str.ends_with(".sqlite3") {
+        return Ok(());
+    }
+
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
         if ext_lower == "sqlite" || ext_lower == "db" || ext_lower == "sqlite3" {
