@@ -47,6 +47,7 @@ const demoDatabases = [
 export function VaultScreen() {
   const recentSources = useAppStore((s) => s.recentSources);
   const addRecentSource = useAppStore((s) => s.addRecentSource);
+  const removeRecentSource = useAppStore((s) => s.removeRecentSource);
   const setActiveSource = useAppStore((s) => s.setActiveSource);
   const setActiveView = useAppStore((s) => s.setActiveView);
 
@@ -451,9 +452,11 @@ export function VaultScreen() {
               recentSources.map((source) => (
                 <VaultCard
                   key={source.path}
+                  type={source.type === 'mempalace' || source.type === 'chromadb' ? 'csv' : 'sqlite'}
                   name={source.fileName}
                   metadata={source.summary}
                   onClick={() => handleRecentClick(source)}
+                  onRemove={() => removeRecentSource(source.path)}
                 />
               ))
             )}

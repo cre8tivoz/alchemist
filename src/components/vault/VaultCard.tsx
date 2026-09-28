@@ -1,28 +1,53 @@
-import { Database, MoreHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState, useRef, useEffect } from 'react';
+import { Database, FileCode, MoreHorizontal, Trash2, FolderOpen } from 'lucide-react';
 
 interface VaultCardProps {
   name: string;
+  type: 'sqlite' | 'duckdb' | 'csv' | 'parquet';
   metadata: string;
-  onClick?: () => void;
-  className?: string;
+  onClick: () => void;
+  onRemove?: () => void;
 }
 
-export function VaultCard({ name, metadata, onClick, className }: VaultCardProps) {
+export function VaultCard({ name, type, metadata, onClick, onRemove }: VaultCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const Icon = type === 'sqlite' || type === 'duckdb' ? Database : FileCode;
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={cn(
-        "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg",
-        "bg-white/[0.03] border border-white/[0.06]",
-        "hover:bg-white/[0.06] hover:border-violet-500/20 hover:shadow-[0_0_12px_rgba(139,92,246,0.04)]",
-        "transition-all duration-200 text-left group",
-        className
-      )}
+      onKeyDown={handleKeyDown}
+      className="group relative flex items-center gap-3 p-3 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all text-left w-full cursor-pointer"
     >
       {/* Icon */}
-      <div className="flex items-center justify-center w-8 h-8 rounded-md bg-violet-500/10 shrink-0">
-        <Database className="w-4 h-4 text-violet-400" />
+      <div className="p-2 rounded-md bg-purple-500/10 text-purple-400">
+        <Icon className="w-4 h-4" />
       </div>
 
       {/* Content */}
@@ -32,15 +57,51 @@ export function VaultCard({ name, metadata, onClick, className }: VaultCardProps
       </div>
 
       {/* Kebab menu */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          // TODO: dropdown menu
-        }}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/[0.08]"
-      >
-        <MoreHorizontal className="w-4 h-4 text-zinc-500" />
-      </button>
-    </button>
+      <div className="relative" ref={menuRef}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen((prev) => !prev);
+          }}
+          aria-expanded={isOpen}
+          aria-haspopup="true"
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 rounded hover:bg-white/[0.08]"
+        >
+          <MoreHorizontal className="w-4 h-4 text-zinc-500 hover:text-zinc-300" />
+        </button>
+
+        {isOpen && (
+          <div className="absolute right-0 top-full mt-1 w-44 rounded-md bg-zinc-900 border border-white/10 shadow-lg py-1 z-50">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+                onClick();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
+              Open Database
+            </button>
+            {onRemove && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                  onRemove();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                Remove from Recents
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
