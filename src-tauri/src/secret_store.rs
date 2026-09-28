@@ -1,16 +1,15 @@
 //! API key storage with a cross-platform local fallback.
-//! On macOS it also mirrors keys into the Keychain via the `security` CLI (errors ignored to
-//! avoid prompts). Everywhere, keys are written to ~/.alchemist/secrets.json so they survive.
+//! Keys are stored securely in system keyring / keychain via `keyring` crate when available.
+//! Everywhere, keys are written to ~/.alchemist/secrets.json as a local fallback so they survive.
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-#[cfg(target_os = "macos")]
-use std::process::Command;
+
+use keyring::Entry;
 
 use crate::paths::user_home;
 
-#[cfg(target_os = "macos")]
 const KEYCHAIN_SERVICE: &str = "alchemist";
 
 fn secrets_path() -> PathBuf {
@@ -42,22 +41,12 @@ fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
 }
 
 /// Store an API key.
-/// Tries keychain (silently ignores errors) and always writes to local ~/.alchemist/secrets.json using account as key.
+/// Tries system keyring (silently ignores errors) and always writes to local ~/.alchemist/secrets.json using account as key.
 pub fn store_key(account: &str, password: &str) -> Result<(), String> {
-    // Keychain attempt (macOS only) - ignore errors completely to prevent prompts/popups
-    #[cfg(target_os = "macos")]
-    let _ = Command::new("security")
-        .args([
-            "add-generic-password",
-            "-s",
-            KEYCHAIN_SERVICE,
-            "-a",
-            account,
-            "-w",
-            password,
-            "-U",
-        ])
-        .output();
+    // Keyring attempt - ignore errors completely to prevent failing if system keyring is unavailable
+    if let Ok(entry) = Entry::new(KEYCHAIN_SERVICE, account) {
+        let _ = entry.set_password(password);
+    }
 
     // Always write to local fallback file
     let mut secrets = load_secrets();
@@ -66,25 +55,13 @@ pub fn store_key(account: &str, password: &str) -> Result<(), String> {
 }
 
 /// Retrieve an API key.
-/// First tries keychain, falls back to local ~/.alchemist/secrets.json
+/// First tries system keyring, falls back to local ~/.alchemist/secrets.json
 pub fn get_key(account: &str) -> Result<String, String> {
-    // Try keychain first (macOS only, non-panicking)
-    #[cfg(target_os = "macos")]
-    if let Ok(output) = Command::new("security")
-        .args([
-            "find-generic-password",
-            "-s",
-            KEYCHAIN_SERVICE,
-            "-a",
-            account,
-            "-w",
-        ])
-        .output()
-    {
-        if output.status.success() {
-            let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !password.is_empty() {
-                return Ok(password);
+    // Try keyring first
+    if let Ok(entry) = Entry::new(KEYCHAIN_SERVICE, account) {
+        if let Ok(password) = entry.get_password() {
+            if !password.trim().is_empty() {
+                return Ok(password.trim().to_string());
             }
         }
     }
@@ -98,19 +75,12 @@ pub fn get_key(account: &str) -> Result<String, String> {
     }
 }
 
-/// Delete an API key from both keychain (best effort) and local secrets file.
+/// Delete an API key from both keyring (best effort) and local secrets file.
 pub fn delete_key(account: &str) -> Result<(), String> {
-    // Keychain delete (macOS only) - ignore errors
-    #[cfg(target_os = "macos")]
-    let _ = Command::new("security")
-        .args([
-            "delete-generic-password",
-            "-s",
-            KEYCHAIN_SERVICE,
-            "-a",
-            account,
-        ])
-        .output();
+    // Keyring delete - ignore errors
+    if let Ok(entry) = Entry::new(KEYCHAIN_SERVICE, account) {
+        let _ = entry.delete_credential();
+    }
 
     // Remove from local file
     let mut secrets = load_secrets();
@@ -120,7 +90,35 @@ pub fn delete_key(account: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Check if a key exists (keychain or local fallback).
+/// Check if a key exists (keyring or local fallback).
 pub fn has_key(account: &str) -> bool {
     get_key(account).is_ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_secret_store_lifecycle() {
+        let test_account = "test_account_secret_store_unit_test";
+        let test_secret = "test_secret_val_12345";
+
+        // Clean up before starting test
+        let _ = delete_key(test_account);
+        assert!(!has_key(test_account));
+
+        // Store key
+        assert!(store_key(test_account, test_secret).is_ok());
+
+        // Has key and Get key
+        assert!(has_key(test_account));
+        let retrieved = get_key(test_account).expect("Should retrieve key");
+        assert_eq!(retrieved, test_secret);
+
+        // Delete key
+        assert!(delete_key(test_account).is_ok());
+        assert!(!has_key(test_account));
+        assert!(get_key(test_account).is_err());
+    }
 }
