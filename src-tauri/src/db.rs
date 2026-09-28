@@ -14,18 +14,9 @@ enum InferredType {
 
 /// Open a SQLite file in read-only mode and return its summary.
 pub fn open_vault(path: &str) -> Result<VaultSummary, AppError> {
+    let conn = open_connection(path)?;
+
     let db_path = Path::new(path);
-    if !db_path.exists() {
-        return Err(AppError::NotFound(format!("File not found: {}", path)));
-    }
-
-    validate_db_path(db_path)?;
-
-    let conn = Connection::open_with_flags(
-        path,
-        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
-    )?;
-
     let file_name = db_path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -182,7 +173,8 @@ pub fn import_tabular_file(path: &str) -> Result<String, AppError> {
 
 fn validate_db_path(path: &Path) -> Result<(), AppError> {
     let path_str = path.to_string_lossy().to_lowercase();
-    if path_str.ends_with(".sqlite") || path_str.ends_with(".db") || path_str.ends_with(".sqlite3") {
+    if path_str.ends_with(".sqlite") || path_str.ends_with(".db") || path_str.ends_with(".sqlite3")
+    {
         return Ok(());
     }
 
@@ -226,6 +218,10 @@ fn validate_db_path(path: &Path) -> Result<(), AppError> {
 
 fn open_connection(path: &str) -> Result<Connection, AppError> {
     let db_path = Path::new(path);
+    if !db_path.exists() {
+        return Err(AppError::NotFound(format!("File not found: {}", path)));
+    }
+
     validate_db_path(db_path)?;
 
     Ok(Connection::open_with_flags(
@@ -742,11 +738,11 @@ mod tests {
     #[test]
     fn canonical_i64_rejects_non_forms() {
         assert_eq!(canonical_i64("007"), None); // leading zero — data loss
-        assert_eq!(canonical_i64("+5"), None);   // leading plus — data loss
-        assert_eq!(canonical_i64(" 42"), None);  // whitespace-padded — data loss
-        assert_eq!(canonical_i64("42 "), None);  // trailing whitespace
-        assert_eq!(canonical_i64("abc"), None);  // non-numeric
-        assert_eq!(canonical_i64(""), None);     // empty
+        assert_eq!(canonical_i64("+5"), None); // leading plus — data loss
+        assert_eq!(canonical_i64(" 42"), None); // whitespace-padded — data loss
+        assert_eq!(canonical_i64("42 "), None); // trailing whitespace
+        assert_eq!(canonical_i64("abc"), None); // non-numeric
+        assert_eq!(canonical_i64(""), None); // empty
     }
 
     #[test]
@@ -786,7 +782,9 @@ mod tests {
         let temp_file = std::env::temp_dir().join("test_without_ext");
         assert!(validate_db_path(&temp_file).is_ok());
 
-        let alchemist_file = crate::paths::user_home().join(".alchemist").join("test_without_ext");
+        let alchemist_file = crate::paths::user_home()
+            .join(".alchemist")
+            .join("test_without_ext");
         assert!(validate_db_path(&alchemist_file).is_ok());
     }
 
@@ -797,5 +795,25 @@ mod tests {
 
         let bad_txt = Path::new("/home/user/secret.txt");
         assert!(validate_db_path(bad_txt).is_err());
+    }
+
+    #[test]
+    fn open_vault_rejects_nonexistent_and_invalid_paths() {
+        let nonexistent = "/tmp/nonexistent_db_12345.db";
+        let err = open_vault(nonexistent).unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+
+        let bad_file = std::env::current_dir().unwrap().join("unauthorized.txt");
+        std::fs::write(&bad_file, "secret content").unwrap();
+        let err = open_vault(&bad_file.to_string_lossy()).unwrap_err();
+        let _ = std::fs::remove_file(&bad_file);
+        assert!(matches!(err, AppError::Validation(_)));
+    }
+
+    #[test]
+    fn open_connection_rejects_unpermitted_extension_outside_allowed_dirs() {
+        let non_temp = std::env::current_dir().unwrap().join("test_file.txt");
+        let err = validate_db_path(&non_temp).unwrap_err();
+        assert!(matches!(err, AppError::Validation(_)));
     }
 }

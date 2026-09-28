@@ -1,14 +1,14 @@
-pub mod errors;
-pub mod models;
-pub mod paths;
-pub mod db;
-pub mod validate;
 pub mod chroma;
-pub mod palace;
+pub mod commands;
+pub mod db;
+pub mod errors;
 pub mod llm;
+pub mod models;
+pub mod palace;
+pub mod paths;
 pub mod providers;
 pub mod secret_store;
-pub mod commands;
+pub mod validate;
 
 use commands::app;
 

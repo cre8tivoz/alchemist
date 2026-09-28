@@ -289,16 +289,10 @@ mod tests {
     fn sqlite_source_overrides_keyword_routing() {
         // "find all witches" would route to vector_search by keyword, but on a
         // SQLite source it must go to SQL.
-        assert_eq!(
-            mode_for_source(Some("sqlite"), "find all witches"),
-            "sql"
-        );
+        assert_eq!(mode_for_source(Some("sqlite"), "find all witches"), "sql");
         // "show the structure" would route to yaml_query by keyword, but on
         // SQLite it must also be SQL.
-        assert_eq!(
-            mode_for_source(Some("sqlite"), "show the structure"),
-            "sql"
-        );
+        assert_eq!(mode_for_source(Some("sqlite"), "show the structure"), "sql");
     }
 
     #[test]
@@ -311,10 +305,7 @@ mod tests {
 
     #[test]
     fn mempalace_source_routes_to_yaml() {
-        assert_eq!(
-            mode_for_source(Some("mempalace"), "anything"),
-            "yaml_query"
-        );
+        assert_eq!(mode_for_source(Some("mempalace"), "anything"), "yaml_query");
     }
 
     #[test]

@@ -1,6 +1,6 @@
+use sqlparser::ast::Statement;
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
-use sqlparser::ast::Statement;
 
 use crate::errors::AppError;
 use crate::models::{SafetyCheck, ValidatedQuery};

@@ -126,7 +126,7 @@ pub fn search_documents(
     // We need to go: fts5 -> embedding_metadata -> embeddings -> collections via segment
     // Actually, the FTS5 table maps docid to embedding_metadata rowid
     // Let me check the FTS5 content table structure
-    
+
     let sql = r#"SELECT
             efs.rowid,
             efs.string_value,
@@ -138,7 +138,8 @@ pub fn search_documents(
         JOIN embeddings emb ON emb.id = em.id
         WHERE embedding_fulltext_search MATCH ?
         ORDER BY rank
-        LIMIT ?"#.to_string();
+        LIMIT ?"#
+        .to_string();
 
     let mut stmt = conn.prepare(&sql)?;
     let results: Vec<SearchResult> = stmt
@@ -155,7 +156,7 @@ pub fn search_documents(
         .map(|(embed_id, doc_text, segment_id, created_at)| {
             // Gather metadata for this embedding
             let metadata = get_embedding_metadata(&conn, embed_id).unwrap_or_default();
-            
+
             let relevance_hint = doc_text.chars().take(200).collect::<String>();
 
             SearchResult {
@@ -188,9 +189,7 @@ pub fn search_documents(
 
             if let Some(cid) = coll_id {
                 // Get segment IDs for this collection
-                let mut seg_stmt = conn.prepare(
-                    "SELECT id FROM segments WHERE collection = ?1",
-                )?;
+                let mut seg_stmt = conn.prepare("SELECT id FROM segments WHERE collection = ?1")?;
                 let seg_ids: Vec<String> = seg_stmt
                     .query_map(rusqlite::params![cid], |row| {
                         let id: String = row.get(0)?;
@@ -261,7 +260,10 @@ fn count_docs_in_collection(conn: &Connection, collection_id: &str) -> Result<us
     Ok(count as usize)
 }
 
-fn get_embedding_metadata(conn: &Connection, embed_id: i64) -> Result<std::collections::HashMap<String, String>, AppError> {
+fn get_embedding_metadata(
+    conn: &Connection,
+    embed_id: i64,
+) -> Result<std::collections::HashMap<String, String>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT key, COALESCE(string_value, CAST(int_value AS TEXT), CAST(float_value AS TEXT), '')
          FROM embedding_metadata WHERE id = ?1",
