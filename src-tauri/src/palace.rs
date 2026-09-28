@@ -1,9 +1,7 @@
 use std::path::Path;
 
 use crate::errors::AppError;
-use crate::models::{
-    DrawerStructure, MemPalaceStructure, RoomStructure, WingStructure,
-};
+use crate::models::{DrawerStructure, MemPalaceStructure, RoomStructure, WingStructure};
 
 /// Parse a drawer from a YAML value (list item with name + optional fields).
 fn parse_drawer(dv: &serde_yaml::Value) -> DrawerStructure {
@@ -15,17 +13,29 @@ fn parse_drawer(dv: &serde_yaml::Value) -> DrawerStructure {
     let keywords: Vec<String> = dv
         .get("keywords")
         .and_then(|v| v.as_sequence())
-        .map(|seq| seq.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|seq| {
+            seq.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
     let descriptions: Vec<String> = dv
         .get("descriptions")
         .and_then(|v| v.as_sequence())
-        .map(|seq| seq.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|seq| {
+            seq.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
     let entities: Vec<String> = dv
         .get("entities")
         .and_then(|v| v.as_sequence())
-        .map(|seq| seq.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|seq| {
+            seq.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
     DrawerStructure {
         name,
@@ -45,12 +55,7 @@ fn parse_rooms(rooms_raw: &serde_yaml::Value) -> (Vec<RoomStructure>, usize) {
     let items: Vec<(String, &serde_yaml::Value)> = if let Some(map) = rooms_raw.as_mapping() {
         // Mapping format: room_name: { keywords: …, drawers: … }
         map.iter()
-            .map(|(k, v)| {
-                (
-                    k.as_str().unwrap_or("unnamed_room").to_string(),
-                    v,
-                )
-            })
+            .map(|(k, v)| (k.as_str().unwrap_or("unnamed_room").to_string(), v))
             .collect()
     } else if let Some(seq) = rooms_raw.as_sequence() {
         // List format: - name: room_name\n  keywords: …
@@ -73,12 +78,20 @@ fn parse_rooms(rooms_raw: &serde_yaml::Value) -> (Vec<RoomStructure>, usize) {
             let keywords: Vec<String> = rv
                 .get(serde_yaml::Value::from("keywords"))
                 .and_then(|v| v.as_sequence())
-                .map(|seq| seq.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .map(|seq| {
+                    seq.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
             let entities: Vec<String> = rv
                 .get(serde_yaml::Value::from("entities"))
                 .and_then(|v| v.as_sequence())
-                .map(|seq| seq.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .map(|seq| {
+                    seq.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
 
             let drawers_raw = rv.get(serde_yaml::Value::from("drawers"));

@@ -3,8 +3,8 @@ use crate::db;
 use crate::llm;
 use crate::models::{
     CollectionInfo, GeneratedQuery, MemPalaceStructure, PalaceDiscovery, PalaceInfo,
-    ProviderConfig, ProviderHealth, QueryResult, SearchResult, TableSchema, VaultSummary,
-    ValidatedQuery,
+    ProviderConfig, ProviderHealth, QueryResult, SearchResult, TableSchema, ValidatedQuery,
+    VaultSummary,
 };
 use crate::palace;
 use crate::providers::{GeminiClient, OllamaClient, OpenAIClient};
@@ -152,7 +152,9 @@ pub async fn check_provider(
         "openai" | "deepseek" => {
             let key = api_key
                 .filter(|k| !k.is_empty())
-                .or_else(|| crate::secret_store::get_key(&format!("{}_api_key", provider_type)).ok())
+                .or_else(|| {
+                    crate::secret_store::get_key(&format!("{}_api_key", provider_type)).ok()
+                })
                 .unwrap_or_default();
             let client = OpenAIClient::new(&url, &model, &key);
             client.check_health().await
@@ -211,7 +213,9 @@ pub async fn generate_query(
 ) -> Result<GeneratedQuery, String> {
     let start = std::time::Instant::now();
     let mode = llm::mode_for_source(source_type.as_deref(), &question);
-    let provider = provider_type.clone().unwrap_or_else(|| "ollama".to_string());
+    let provider = provider_type
+        .clone()
+        .unwrap_or_else(|| "ollama".to_string());
     let url = provider_url.unwrap_or_else(|| "http://localhost:11434".to_string());
     let model = provider_model.unwrap_or_else(|| DEFAULT_OLLAMA_MODEL.to_string());
 
@@ -259,10 +263,7 @@ pub async fn generate_query(
                 if let Ok(tables) = serde_json::from_str::<Vec<TableSchema>>(&json) {
                     llm::build_sql_prompt(&question, &tables, tables.len())
                 } else {
-                    format!(
-                        "Write a read-only SQLite SELECT query for: {}",
-                        question
-                    )
+                    format!("Write a read-only SQLite SELECT query for: {}", question)
                 }
             } else {
                 format!("Write a read-only SQLite SELECT query for: {}", question)
@@ -278,14 +279,16 @@ pub async fn generate_query(
             client.generate(&prompt).await?
         }
         "deepseek" => {
-            let api_key = crate::secret_store::get_key("deepseek_api_key")
-                .map_err(|_| "DeepSeek API key not found. Please add one in Settings.".to_string())?;
+            let api_key = crate::secret_store::get_key("deepseek_api_key").map_err(|_| {
+                "DeepSeek API key not found. Please add one in Settings.".to_string()
+            })?;
             let client = OpenAIClient::new(&url, &model, &api_key);
             client.generate(&prompt).await?
         }
         "google-ai" => {
-            let api_key = crate::secret_store::get_key("google_ai_api_key")
-                .map_err(|_| "Google AI API key not found. Please add one in Settings.".to_string())?;
+            let api_key = crate::secret_store::get_key("google_ai_api_key").map_err(|_| {
+                "Google AI API key not found. Please add one in Settings.".to_string()
+            })?;
             let client = GeminiClient::new(&url, &model, &api_key);
             client.generate(&prompt).await?
         }

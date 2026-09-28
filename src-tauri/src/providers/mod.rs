@@ -114,11 +114,8 @@ impl OllamaClient {
             Ok(resp) if resp.status().is_success() => {
                 match resp.json::<OllamaTagResponse>().await {
                     Ok(tag_resp) => {
-                        let models_list: Vec<String> = tag_resp
-                            .models
-                            .iter()
-                            .map(|m| m.name.clone())
-                            .collect();
+                        let models_list: Vec<String> =
+                            tag_resp.models.iter().map(|m| m.name.clone()).collect();
                         Ok(models::ProviderHealth {
                             provider_type: "ollama".to_string(),
                             reachable: true,
@@ -215,9 +212,11 @@ impl OpenAIClient {
 
         match resp {
             Ok(r) if r.status().is_success() => {
-                let models = r.json::<OpenAIModelsResponse>().await.map(|m| {
-                    m.data.into_iter().map(|e| e.id).collect::<Vec<_>>()
-                }).unwrap_or_default();
+                let models = r
+                    .json::<OpenAIModelsResponse>()
+                    .await
+                    .map(|m| m.data.into_iter().map(|e| e.id).collect::<Vec<_>>())
+                    .unwrap_or_default();
                 Ok(models::ProviderHealth {
                     provider_type: "openai".to_string(),
                     reachable: true,
