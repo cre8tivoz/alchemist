@@ -171,14 +171,18 @@ pub fn import_tabular_file(path: &str) -> Result<String, AppError> {
 
 // ---- Internal helpers ----
 
-fn validate_db_path(path: &Path) -> Result<(), AppError> {
-    let path_str = path.to_string_lossy().to_lowercase();
-    if path_str.ends_with(".sqlite") || path_str.ends_with(".db") || path_str.ends_with(".sqlite3")
-    {
-        return Ok(());
-    }
+pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
+    let raw_str = path.to_string_lossy();
+    // Extract file path portion if raw_str is formatted as a URI or contains query params (e.g. file:///path?mode=ro)
+    let clean_str = if let Some(stripped) = raw_str.strip_prefix("file://") {
+        stripped.split('?').next().unwrap_or(stripped)
+    } else {
+        raw_str.split('?').next().unwrap_or(&raw_str)
+    };
 
-    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+    let clean_path = Path::new(clean_str);
+
+    if let Some(ext) = clean_path.extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
         if ext_lower == "sqlite" || ext_lower == "db" || ext_lower == "sqlite3" {
             return Ok(());
@@ -188,7 +192,7 @@ fn validate_db_path(path: &Path) -> Result<(), AppError> {
     let alchemist_dir = crate::paths::user_home().join(".alchemist");
     let temp_dir = std::env::temp_dir();
 
-    if let Ok(canon_path) = path.canonicalize() {
+    if let Ok(canon_path) = clean_path.canonicalize() {
         if let Ok(canon_alchemist) = alchemist_dir.canonicalize() {
             if canon_path.starts_with(&canon_alchemist) {
                 return Ok(());
@@ -205,7 +209,7 @@ fn validate_db_path(path: &Path) -> Result<(), AppError> {
             return Ok(());
         }
     } else {
-        if path.starts_with(&alchemist_dir) || path.starts_with(&temp_dir) {
+        if clean_path.starts_with(&alchemist_dir) || clean_path.starts_with(&temp_dir) {
             return Ok(());
         }
     }
@@ -789,12 +793,21 @@ mod tests {
     }
 
     #[test]
+    fn validate_db_path_handles_uri_parameters_and_schemes() {
+        assert!(validate_db_path(Path::new("file:///some/path/data.db?mode=ro")).is_ok());
+        assert!(validate_db_path(Path::new("/some/path/data.sqlite?mode=ro&immutable=1")).is_ok());
+    }
+
+    #[test]
     fn validate_db_path_rejects_invalid_file_paths() {
         let bad_path = Path::new("/etc/passwd");
         assert!(validate_db_path(bad_path).is_err());
 
         let bad_txt = Path::new("/home/user/secret.txt");
         assert!(validate_db_path(bad_txt).is_err());
+
+        let bad_uri = Path::new("file:///etc/passwd?mode=ro");
+        assert!(validate_db_path(bad_uri).is_err());
     }
 
     #[test]

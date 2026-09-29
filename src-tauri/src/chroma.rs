@@ -224,6 +224,7 @@ pub fn get_palace_info(palace_path: &str) -> Result<PalaceInfo, AppError> {
 // ---- Internal Helpers ----
 
 fn open_chroma(path: &str) -> Result<Connection, AppError> {
+    crate::db::validate_db_path(Path::new(path))?;
     Ok(Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
@@ -281,4 +282,18 @@ fn get_embedding_metadata(
     }
 
     Ok(map)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn open_chroma_rejects_unauthorized_extension() {
+        let bad_file = std::env::current_dir().unwrap().join("unauthorized_chroma.txt");
+        std::fs::write(&bad_file, "secret").unwrap();
+        let err = open_chroma(&bad_file.to_string_lossy()).unwrap_err();
+        let _ = std::fs::remove_file(&bad_file);
+        assert!(matches!(err, AppError::Validation(_)));
+    }
 }
