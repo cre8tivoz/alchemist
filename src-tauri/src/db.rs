@@ -388,7 +388,7 @@ fn write_rows_to_sqlite(
         std::fs::create_dir_all(parent)?;
     }
 
-    let conn = Connection::open(output_path)?;
+    let mut conn = Connection::open(output_path)?;
     let columns = collect_columns(rows);
     if columns.is_empty() {
         return Err(AppError::Validation(
@@ -427,14 +427,18 @@ fn write_rows_to_sqlite(
         placeholders
     );
 
-    let mut stmt = conn.prepare(&insert_sql)?;
-    for row in rows {
-        let values: Vec<rusqlite::types::Value> = columns
-            .iter()
-            .map(|column| json_value_to_sqlite(row.get(column)))
-            .collect();
-        stmt.execute(rusqlite::params_from_iter(values))?;
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(&insert_sql)?;
+        for row in rows {
+            let values: Vec<rusqlite::types::Value> = columns
+                .iter()
+                .map(|column| json_value_to_sqlite(row.get(column)))
+                .collect();
+            stmt.execute(rusqlite::params_from_iter(values))?;
+        }
     }
+    tx.commit()?;
 
     Ok(())
 }
@@ -936,5 +940,30 @@ mod tests {
         let conn = open_connection(&uri);
         let _ = std::fs::remove_file(&temp_file);
         assert!(conn.is_ok());
+    }
+
+    #[test]
+    fn benchmark_import_tabular_file() {
+        let mut csv_content = String::from("id,name,value,category,active\n");
+        for i in 0..2000 {
+            csv_content.push_str(&format!(
+                "{},item_{},{},cat_{},{}\n",
+                i,
+                i,
+                i * 10,
+                i % 5,
+                i % 2 == 0
+            ));
+        }
+        let source = write_temp_file("bench_data.csv", &csv_content);
+
+        let start = std::time::Instant::now();
+        let sqlite_path = import_tabular_file(&source).expect("import csv benchmark");
+        let elapsed = start.elapsed();
+        println!("BENCHMARK RESULT: import 2000 rows took {:?}", elapsed);
+
+        let schema = get_schema(&sqlite_path).expect("schema");
+        assert_eq!(schema[0].row_count, Some(2000));
+        let _ = std::fs::remove_file(&sqlite_path);
     }
 }
