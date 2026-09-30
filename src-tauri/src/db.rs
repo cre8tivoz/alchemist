@@ -799,6 +799,25 @@ mod tests {
     }
 
     #[test]
+    fn validate_db_path_handles_relative_and_uri_paths() {
+        assert!(validate_db_path(Path::new("file:///some/path/data.db?mode=ro")).is_ok());
+        assert!(validate_db_path(Path::new("relative/path/test.sqlite")).is_ok());
+        assert!(validate_db_path(Path::new("my_database.db")).is_ok());
+    }
+
+    #[test]
+    fn validate_db_path_rejects_unauthorized_paths_without_valid_ext() {
+        let bad_path = Path::new("/etc/passwd");
+        assert!(validate_db_path(bad_path).is_err());
+
+        let bad_txt = Path::new("/home/user/secret.txt");
+        assert!(validate_db_path(bad_txt).is_err());
+
+        let bad_uri = Path::new("file:///etc/passwd?mode=ro");
+        assert!(validate_db_path(bad_uri).is_err());
+    }
+
+    #[test]
     fn validate_db_path_rejects_invalid_file_paths() {
         let bad_path = Path::new("/etc/passwd");
         assert!(validate_db_path(bad_path).is_err());
