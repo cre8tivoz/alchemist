@@ -16,7 +16,8 @@ enum InferredType {
 pub fn open_vault(path: &str) -> Result<VaultSummary, AppError> {
     let conn = open_connection(path)?;
 
-    let db_path = Path::new(path);
+    let clean_str = extract_clean_path_str(path);
+    let db_path = Path::new(&clean_str);
     let file_name = db_path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -171,16 +172,65 @@ pub fn import_tabular_file(path: &str) -> Result<String, AppError> {
 
 // ---- Internal helpers ----
 
-pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
-    let raw_str = path.to_string_lossy();
-    // Extract file path portion if raw_str is formatted as a URI or contains query params (e.g. file:///path?mode=ro)
-    let clean_str = if let Some(stripped) = raw_str.strip_prefix("file://") {
-        stripped.split('?').next().unwrap_or(stripped)
+fn percent_decode(input: &str) -> String {
+    let mut decoded = Vec::new();
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(hex) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            {
+                decoded.push(hex);
+                i += 3;
+                continue;
+            }
+        }
+        decoded.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
+}
+
+pub(crate) fn extract_clean_path_str(raw_str: &str) -> String {
+    let stripped = if let Some(s) = raw_str.strip_prefix("file://") {
+        s
+    } else if let Some(s) = raw_str.strip_prefix("file:") {
+        s
     } else {
-        raw_str.split('?').next().unwrap_or(&raw_str)
+        raw_str
     };
 
-    let clean_path = Path::new(clean_str);
+    let without_query = stripped.split('?').next().unwrap_or(stripped);
+    let without_fragment = without_query.split('#').next().unwrap_or(without_query);
+
+    let decoded = percent_decode(without_fragment);
+
+    let trimmed = if let Some(s) = decoded.strip_prefix("localhost") {
+        s
+    } else if let Some(s) = decoded.strip_prefix("127.0.0.1") {
+        s
+    } else {
+        &decoded
+    };
+
+    let path_str = if trimmed.len() >= 3
+        && trimmed.starts_with('/')
+        && trimmed.chars().nth(1).map_or(false, |c| c.is_ascii_alphabetic())
+        && trimmed.chars().nth(2) == Some(':')
+    {
+        &trimmed[1..]
+    } else {
+        trimmed
+    };
+
+    path_str.to_string()
+}
+
+pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
+    let raw_str = path.to_string_lossy();
+    let clean_str = extract_clean_path_str(&raw_str);
+    let clean_path = Path::new(&clean_str);
 
     if let Some(ext) = clean_path.extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
@@ -209,8 +259,15 @@ pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
             return Ok(());
         }
     } else {
-        if clean_path.starts_with(&alchemist_dir) || clean_path.starts_with(&temp_dir) {
-            return Ok(());
+        // Path does not exist yet. Reject if it contains parent directory components ('..') to prevent path traversal
+        let has_parent_dir = clean_path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir));
+
+        if !has_parent_dir {
+            if clean_path.starts_with(&alchemist_dir) || clean_path.starts_with(&temp_dir) {
+                return Ok(());
+            }
         }
     }
 
@@ -221,12 +278,13 @@ pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
 }
 
 fn open_connection(path: &str) -> Result<Connection, AppError> {
-    let db_path = Path::new(path);
-    if !db_path.exists() {
+    let clean_str = extract_clean_path_str(path);
+    let clean_path = Path::new(&clean_str);
+    if !clean_path.exists() && !Path::new(path).exists() {
         return Err(AppError::NotFound(format!("File not found: {}", path)));
     }
 
-    validate_db_path(db_path)?;
+    validate_db_path(Path::new(path))?;
 
     Ok(Connection::open_with_flags(
         path,
@@ -847,5 +905,29 @@ mod tests {
         let non_temp = std::env::current_dir().unwrap().join("test_file.txt");
         let err = validate_db_path(&non_temp).unwrap_err();
         assert!(matches!(err, AppError::Validation(_)));
+    }
+
+    #[test]
+    fn validate_db_path_rejects_path_traversal_without_valid_ext() {
+        let temp_dir = std::env::temp_dir();
+        let traversal_path = temp_dir.join("../etc/passwd");
+        assert!(validate_db_path(&traversal_path).is_err());
+    }
+
+    #[test]
+    fn validate_db_path_handles_uri_fragments_and_single_slash_file() {
+        assert!(validate_db_path(Path::new("file:/some/path/data.db#fragment")).is_ok());
+        assert!(validate_db_path(Path::new("file:///some/path/data.sqlite?mode=ro#fragment")).is_ok());
+        assert!(validate_db_path(Path::new("file:/etc/passwd#section")).is_err());
+    }
+
+    #[test]
+    fn open_connection_checks_existence_of_cleaned_uri_path() {
+        let temp_file = std::env::temp_dir().join(format!("test_uri_{}.db", uuid::Uuid::new_v4().simple()));
+        std::fs::write(&temp_file, "dummy content").unwrap();
+        let uri = format!("file://{}?mode=ro", temp_file.display());
+        let conn = open_connection(&uri);
+        let _ = std::fs::remove_file(&temp_file);
+        assert!(conn.is_ok());
     }
 }
