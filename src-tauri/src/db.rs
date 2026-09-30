@@ -216,7 +216,10 @@ pub(crate) fn extract_clean_path_str(raw_str: &str) -> String {
 
     let path_str = if trimmed.len() >= 3
         && trimmed.starts_with('/')
-        && trimmed.chars().nth(1).map_or(false, |c| c.is_ascii_alphabetic())
+        && trimmed
+            .chars()
+            .nth(1)
+            .map_or(false, |c| c.is_ascii_alphabetic())
         && trimmed.chars().nth(2) == Some(':')
     {
         &trimmed[1..]
@@ -231,13 +234,6 @@ pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
     let raw_str = path.to_string_lossy();
     let clean_str = extract_clean_path_str(&raw_str);
     let clean_path = Path::new(&clean_str);
-
-    if let Some(ext) = clean_path.extension().and_then(|e| e.to_str()) {
-        let ext_lower = ext.to_lowercase();
-        if ext_lower == "sqlite" || ext_lower == "db" || ext_lower == "sqlite3" {
-            return Ok(());
-        }
-    }
 
     let alchemist_dir = crate::paths::user_home().join(".alchemist");
     let temp_dir = std::env::temp_dir();
@@ -272,7 +268,7 @@ pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
     }
 
     Err(AppError::Validation(format!(
-        "Invalid database file path: {}. Path must end with .sqlite, .db, or .sqlite3, or be located within a permitted directory.",
+        "Invalid database file path: {}. Path must be located within a permitted directory.",
         path.display()
     )))
 }
@@ -836,12 +832,18 @@ mod tests {
 
     #[test]
     fn validate_db_path_accepts_valid_extensions_and_dirs() {
-        assert!(validate_db_path(Path::new("/some/path/data.db")).is_ok());
-        assert!(validate_db_path(Path::new("/some/path/data.sqlite")).is_ok());
-        assert!(validate_db_path(Path::new("/some/path/data.sqlite3")).is_ok());
-        assert!(validate_db_path(Path::new("/SOME/PATH/DATA.DB")).is_ok());
+        let temp_dir = std::env::temp_dir();
 
-        let temp_file = std::env::temp_dir().join("test_without_ext");
+        let db_file = temp_dir.join("data.db");
+        assert!(validate_db_path(&db_file).is_ok());
+
+        let sqlite_file = temp_dir.join("data.sqlite");
+        assert!(validate_db_path(&sqlite_file).is_ok());
+
+        let sqlite3_file = temp_dir.join("data.sqlite3");
+        assert!(validate_db_path(&sqlite3_file).is_ok());
+
+        let temp_file = temp_dir.join("test_without_ext");
         assert!(validate_db_path(&temp_file).is_ok());
 
         let alchemist_file = crate::paths::user_home()
@@ -852,15 +854,22 @@ mod tests {
 
     #[test]
     fn validate_db_path_handles_uri_parameters_and_schemes() {
-        assert!(validate_db_path(Path::new("file:///some/path/data.db?mode=ro")).is_ok());
-        assert!(validate_db_path(Path::new("/some/path/data.sqlite?mode=ro&immutable=1")).is_ok());
+        let temp_dir = std::env::temp_dir();
+        let db_file = temp_dir.join("data.db");
+        let uri1 = format!("file://{}?mode=ro", db_file.display());
+        assert!(validate_db_path(Path::new(&uri1)).is_ok());
+
+        let sqlite_file = temp_dir.join("data.sqlite");
+        let uri2 = format!("{}?mode=ro&immutable=1", sqlite_file.display());
+        assert!(validate_db_path(Path::new(&uri2)).is_ok());
     }
 
     #[test]
-    fn validate_db_path_handles_relative_and_uri_paths() {
-        assert!(validate_db_path(Path::new("file:///some/path/data.db?mode=ro")).is_ok());
-        assert!(validate_db_path(Path::new("relative/path/test.sqlite")).is_ok());
-        assert!(validate_db_path(Path::new("my_database.db")).is_ok());
+    fn validate_db_path_rejects_unauthorized_paths_with_valid_ext() {
+        assert!(validate_db_path(Path::new("/some/path/data.db")).is_err());
+        assert!(validate_db_path(Path::new("/some/path/data.sqlite")).is_err());
+        assert!(validate_db_path(Path::new("/some/path/data.sqlite3")).is_err());
+        assert!(validate_db_path(Path::new("/etc/passwd.sqlite")).is_err());
     }
 
     #[test]
@@ -916,14 +925,22 @@ mod tests {
 
     #[test]
     fn validate_db_path_handles_uri_fragments_and_single_slash_file() {
-        assert!(validate_db_path(Path::new("file:/some/path/data.db#fragment")).is_ok());
-        assert!(validate_db_path(Path::new("file:///some/path/data.sqlite?mode=ro#fragment")).is_ok());
+        let temp_dir = std::env::temp_dir();
+        let db_file = temp_dir.join("data.db");
+        let uri1 = format!("file:{}#fragment", db_file.display());
+        assert!(validate_db_path(Path::new(&uri1)).is_ok());
+
+        let sqlite_file = temp_dir.join("data.sqlite");
+        let uri2 = format!("file://{}?mode=ro#fragment", sqlite_file.display());
+        assert!(validate_db_path(Path::new(&uri2)).is_ok());
+
         assert!(validate_db_path(Path::new("file:/etc/passwd#section")).is_err());
     }
 
     #[test]
     fn open_connection_checks_existence_of_cleaned_uri_path() {
-        let temp_file = std::env::temp_dir().join(format!("test_uri_{}.db", uuid::Uuid::new_v4().simple()));
+        let temp_file =
+            std::env::temp_dir().join(format!("test_uri_{}.db", uuid::Uuid::new_v4().simple()));
         std::fs::write(&temp_file, "dummy content").unwrap();
         let uri = format!("file://{}?mode=ro", temp_file.display());
         let conn = open_connection(&uri);
