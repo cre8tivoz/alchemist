@@ -219,7 +219,7 @@ pub(crate) fn extract_clean_path_str(raw_str: &str) -> String {
         && trimmed
             .chars()
             .nth(1)
-            .map_or(false, |c| c.is_ascii_alphabetic())
+            .is_some_and(|c| c.is_ascii_alphabetic())
         && trimmed.chars().nth(2) == Some(':')
     {
         &trimmed[1..]
@@ -260,10 +260,10 @@ pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
             .components()
             .any(|c| matches!(c, std::path::Component::ParentDir));
 
-        if !has_parent_dir {
-            if clean_path.starts_with(&alchemist_dir) || clean_path.starts_with(&temp_dir) {
-                return Ok(());
-            }
+        if !has_parent_dir
+            && (clean_path.starts_with(&alchemist_dir) || clean_path.starts_with(&temp_dir))
+        {
+            return Ok(());
         }
     }
 
@@ -434,9 +434,10 @@ fn write_rows_to_sqlite(
 
 fn collect_columns(rows: &[BTreeMap<String, serde_json::Value>]) -> Vec<String> {
     let mut columns = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for row in rows {
         for key in row.keys() {
-            if !columns.contains(key) {
+            if seen.insert(key) {
                 columns.push(key.clone());
             }
         }
