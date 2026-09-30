@@ -17,7 +17,7 @@ pub fn open_vault(path: &str) -> Result<VaultSummary, AppError> {
     let conn = open_connection(path)?;
 
     let clean_str = extract_clean_path_str(path);
-    let db_path = Path::new(clean_str);
+    let db_path = Path::new(&clean_str);
     let file_name = db_path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -172,7 +172,27 @@ pub fn import_tabular_file(path: &str) -> Result<String, AppError> {
 
 // ---- Internal helpers ----
 
-pub(crate) fn extract_clean_path_str(raw_str: &str) -> &str {
+fn percent_decode(input: &str) -> String {
+    let mut decoded = Vec::new();
+    let bytes = input.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(hex) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            {
+                decoded.push(hex);
+                i += 3;
+                continue;
+            }
+        }
+        decoded.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
+}
+
+pub(crate) fn extract_clean_path_str(raw_str: &str) -> String {
     let stripped = if let Some(s) = raw_str.strip_prefix("file://") {
         s
     } else if let Some(s) = raw_str.strip_prefix("file:") {
@@ -182,13 +202,35 @@ pub(crate) fn extract_clean_path_str(raw_str: &str) -> &str {
     };
 
     let without_query = stripped.split('?').next().unwrap_or(stripped);
-    without_query.split('#').next().unwrap_or(without_query)
+    let without_fragment = without_query.split('#').next().unwrap_or(without_query);
+
+    let decoded = percent_decode(without_fragment);
+
+    let trimmed = if let Some(s) = decoded.strip_prefix("localhost") {
+        s
+    } else if let Some(s) = decoded.strip_prefix("127.0.0.1") {
+        s
+    } else {
+        &decoded
+    };
+
+    let path_str = if trimmed.len() >= 3
+        && trimmed.starts_with('/')
+        && trimmed.chars().nth(1).map_or(false, |c| c.is_ascii_alphabetic())
+        && trimmed.chars().nth(2) == Some(':')
+    {
+        &trimmed[1..]
+    } else {
+        trimmed
+    };
+
+    path_str.to_string()
 }
 
 pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
     let raw_str = path.to_string_lossy();
     let clean_str = extract_clean_path_str(&raw_str);
-    let clean_path = Path::new(clean_str);
+    let clean_path = Path::new(&clean_str);
 
     if let Some(ext) = clean_path.extension().and_then(|e| e.to_str()) {
         let ext_lower = ext.to_lowercase();
@@ -237,7 +279,7 @@ pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
 
 fn open_connection(path: &str) -> Result<Connection, AppError> {
     let clean_str = extract_clean_path_str(path);
-    let clean_path = Path::new(clean_str);
+    let clean_path = Path::new(&clean_str);
     if !clean_path.exists() && !Path::new(path).exists() {
         return Err(AppError::NotFound(format!("File not found: {}", path)));
     }
