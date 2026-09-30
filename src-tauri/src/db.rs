@@ -216,7 +216,10 @@ pub(crate) fn extract_clean_path_str(raw_str: &str) -> String {
 
     let path_str = if trimmed.len() >= 3
         && trimmed.starts_with('/')
-        && trimmed.chars().nth(1).map_or(false, |c| c.is_ascii_alphabetic())
+        && trimmed
+            .chars()
+            .nth(1)
+            .is_some_and(|c| c.is_ascii_alphabetic())
         && trimmed.chars().nth(2) == Some(':')
     {
         &trimmed[1..]
@@ -264,10 +267,10 @@ pub(crate) fn validate_db_path(path: &Path) -> Result<(), AppError> {
             .components()
             .any(|c| matches!(c, std::path::Component::ParentDir));
 
-        if !has_parent_dir {
-            if clean_path.starts_with(&alchemist_dir) || clean_path.starts_with(&temp_dir) {
-                return Ok(());
-            }
+        if !has_parent_dir
+            && (clean_path.starts_with(&alchemist_dir) || clean_path.starts_with(&temp_dir))
+        {
+            return Ok(());
         }
     }
 
@@ -438,9 +441,10 @@ fn write_rows_to_sqlite(
 
 fn collect_columns(rows: &[BTreeMap<String, serde_json::Value>]) -> Vec<String> {
     let mut columns = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for row in rows {
         for key in row.keys() {
-            if !columns.contains(key) {
+            if seen.insert(key) {
                 columns.push(key.clone());
             }
         }
@@ -917,13 +921,16 @@ mod tests {
     #[test]
     fn validate_db_path_handles_uri_fragments_and_single_slash_file() {
         assert!(validate_db_path(Path::new("file:/some/path/data.db#fragment")).is_ok());
-        assert!(validate_db_path(Path::new("file:///some/path/data.sqlite?mode=ro#fragment")).is_ok());
+        assert!(
+            validate_db_path(Path::new("file:///some/path/data.sqlite?mode=ro#fragment")).is_ok()
+        );
         assert!(validate_db_path(Path::new("file:/etc/passwd#section")).is_err());
     }
 
     #[test]
     fn open_connection_checks_existence_of_cleaned_uri_path() {
-        let temp_file = std::env::temp_dir().join(format!("test_uri_{}.db", uuid::Uuid::new_v4().simple()));
+        let temp_file =
+            std::env::temp_dir().join(format!("test_uri_{}.db", uuid::Uuid::new_v4().simple()));
         std::fs::write(&temp_file, "dummy content").unwrap();
         let uri = format!("file://{}?mode=ro", temp_file.display());
         let conn = open_connection(&uri);
