@@ -26,17 +26,34 @@ fn load_secrets() -> HashMap<String, String> {
 }
 
 fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
-    if let Some(dir) = secrets_path().parent() {
+    let path = secrets_path();
+    if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
     }
     let content = serde_json::to_string_pretty(secrets)
         .map_err(|e| format!("Failed to serialize secrets: {}", e))?;
-    fs::write(secrets_path(), content).map_err(|e| format!("Failed to save secrets: {}", e))?;
+
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+
+    let mut file = options
+        .open(&path)
+        .map_err(|e| format!("Failed to open secrets file: {}", e))?;
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(secrets_path(), fs::Permissions::from_mode(0o600));
+        let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
     }
+
+    use std::io::Write;
+    file.write_all(content.as_bytes())
+        .map_err(|e| format!("Failed to save secrets: {}", e))?;
     Ok(())
 }
 
@@ -98,9 +115,13 @@ pub fn has_key(account: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_secret_store_lifecycle() {
+        let _guard = TEST_LOCK.lock().unwrap();
         let test_account = "test_account_secret_store_unit_test";
         let test_secret = "test_secret_val_12345";
 
@@ -120,5 +141,17 @@ mod tests {
         assert!(delete_key(test_account).is_ok());
         assert!(!has_key(test_account));
         assert!(get_key(test_account).is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_secrets_file_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let _guard = TEST_LOCK.lock().unwrap();
+        let test_account = "test_account_permissions";
+        let _ = store_key(test_account, "secret123");
+        let metadata = fs::metadata(secrets_path()).expect("secrets file exists");
+        assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
+        let _ = delete_key(test_account);
     }
 }
