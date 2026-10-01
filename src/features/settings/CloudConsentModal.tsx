@@ -58,8 +58,11 @@ export function CloudConsentModal({
             Cloud Provider Consent
           </h2>
           <button
+            type="button"
+            aria-label="Close modal"
+            title="Close"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-colors"
+            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             <X className="w-4 h-4 text-zinc-500" />
           </button>
