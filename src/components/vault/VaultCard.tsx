@@ -60,13 +60,15 @@ export function VaultCard({ name, type, metadata, onClick, onRemove }: VaultCard
       <div className="relative" ref={menuRef}>
         <button
           type="button"
+          aria-label={`More options for ${name}`}
+          title="More options"
           onClick={(e) => {
             e.stopPropagation();
             setIsOpen((prev) => !prev);
           }}
           aria-expanded={isOpen}
           aria-haspopup="true"
-          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 rounded hover:bg-white/[0.08]"
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none transition-opacity p-1 rounded hover:bg-white/[0.08]"
         >
           <MoreHorizontal className="w-4 h-4 text-zinc-500 hover:text-zinc-300" />
         </button>

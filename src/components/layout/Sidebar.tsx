@@ -39,6 +39,8 @@ export function Sidebar() {
             <Button
               key={item.id}
               variant="ghost"
+              aria-label={item.label}
+              title={item.label}
               onClick={() => setActiveView(item.id)}
               className={cn(
                 "flex items-center justify-center lg:justify-start gap-3 h-10 w-full rounded-lg transition-all",

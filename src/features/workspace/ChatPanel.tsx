@@ -566,6 +566,8 @@ export function ChatPanel() {
             />
             <Button
               size="icon"
+              aria-label="Send query"
+              title="Send query"
               onClick={handleSend}
               disabled={!input.trim() || isGenerating || isRunning || !activeSource}
               className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-600"
@@ -594,8 +596,11 @@ export function ChatPanel() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
               <h2 className="text-sm font-semibold text-zinc-100">Save as Spell</h2>
               <button
+                type="button"
+                aria-label="Close modal"
+                title="Close"
                 onClick={() => setShowSaveSpell(false)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-colors"
+                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               >
                 <X className="w-4 h-4 text-zinc-500" />
               </button>
