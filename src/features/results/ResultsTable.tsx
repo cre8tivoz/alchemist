@@ -37,23 +37,33 @@ export function ResultsTable({ columns, rows, truncated, rowCount }: ResultsTabl
     }
   };
 
+  // Optimization (⚡ Bolt): Use Schwartzian transform (map-sort-map) to pre-extract
+  // and convert sort keys O(N) times instead of O(N log N) during sorting comparator calls.
   const sortedRows = useMemo(() => {
     if (sortCol === null || sortDir === null) return rows;
-    return [...rows].sort((a, b) => {
-      const aVal = a[sortCol];
-      const bVal = b[sortCol];
-      if (aVal === bVal || aVal === undefined || bVal === undefined) return 0;
-      // Try numeric comparison first
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sortDir === "asc" ? aVal - bVal : bVal - aVal;
-      }
-      // String comparison
-      const aStr = String(aVal ?? "");
-      const bStr = String(bVal ?? "");
-      return sortDir === "asc"
-        ? aStr.localeCompare(bStr)
-        : bStr.localeCompare(aStr);
+
+    const mapped = rows.map((row) => {
+      const val = row[sortCol];
+      const isNum = typeof val === "number";
+      const strVal = String(val ?? "");
+      return { row, val, isNum, strVal };
     });
+
+    mapped.sort((a, b) => {
+      if (a.val === b.val || a.val === undefined || b.val === undefined) return 0;
+      // Numeric comparison when both values are numbers
+      if (a.isNum && b.isNum) {
+        const numA = a.val as number;
+        const numB = b.val as number;
+        return sortDir === "asc" ? numA - numB : numB - numA;
+      }
+      // String comparison (keys precomputed in mapped)
+      return sortDir === "asc"
+        ? a.strVal.localeCompare(b.strVal)
+        : b.strVal.localeCompare(a.strVal);
+    });
+
+    return mapped.map((item) => item.row);
   }, [rows, sortCol, sortDir]);
 
   const SortIcon = ({ colIdx }: { colIdx: number }) => {
