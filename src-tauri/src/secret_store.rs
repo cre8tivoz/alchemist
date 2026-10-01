@@ -41,18 +41,19 @@ fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
         options.mode(0o600);
     }
 
-    use std::io::Write;
     let mut file = options
         .open(&path)
         .map_err(|e| format!("Failed to open secrets file: {}", e))?;
-    file.write_all(content.as_bytes())
-        .map_err(|e| format!("Failed to save secrets: {}", e))?;
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = fs::set_permissions(&path, fs::Permissions::from_mode(0o600));
     }
+
+    use std::io::Write;
+    file.write_all(content.as_bytes())
+        .map_err(|e| format!("Failed to save secrets: {}", e))?;
     Ok(())
 }
 
