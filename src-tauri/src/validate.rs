@@ -87,7 +87,10 @@ pub fn validate_sql(sql: &str) -> Result<ValidatedQuery, AppError> {
     });
 
     // Check 5: LIMIT clause
-    let has_limit = final_sql.to_uppercase().contains("LIMIT");
+    let has_limit = match stmt {
+        Statement::Query(q) => q.limit.is_some(),
+        _ => false,
+    };
     if !has_limit {
         was_amended = true;
         // Remove trailing semicolons before appending
@@ -215,5 +218,15 @@ mod tests {
         let v = validate_sql("SELECT * FROM t LIMIT 5").expect("ok");
         assert!(!v.was_amended);
         assert_eq!(v.final_sql, "SELECT * FROM t LIMIT 5");
+    }
+
+    #[test]
+    fn auto_limit_added_when_limit_substring_in_identifiers_or_literals() {
+        // Words like 'unlimited', 'delimiter', 'delimited' contain 'LIMIT' substring
+        // but do not contain a SQL LIMIT clause. AST check must correctly identify missing LIMIT.
+        let v =
+            validate_sql("SELECT * FROM unlimited_items WHERE delimiter = 'limited'").expect("ok");
+        assert!(v.was_amended);
+        assert!(v.final_sql.ends_with("LIMIT 1000"));
     }
 }
