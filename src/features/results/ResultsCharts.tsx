@@ -54,7 +54,13 @@ function detectCharts(columns: string[], rows: unknown[][]): DetectedChart[] {
   if (numericCols.length === 0) return [];
 
   for (const sc of stringCols) {
-    const vals = new Set(rows.map((r) => String(r[sc] ?? "")));
+    // Optimization (⚡ Bolt): Build Set with early termination once vals.size > 20
+    // to avoid scanning all N rows and allocating an intermediate array per string column.
+    const vals = new Set<string>();
+    for (const r of rows) {
+      vals.add(String(r[sc] ?? ""));
+      if (vals.size > 20) break;
+    }
     if (vals.size > 20) continue;
 
     charts.push({
@@ -107,8 +113,23 @@ const chartTypeIcons: Record<ChartType, React.ReactNode> = {
   pie: <PieChartIcon className="w-4 h-4" />,
 };
 
+interface DetectedChartWithData extends DetectedChart {
+  chartData: Array<{ label: string; value: number }>;
+}
+
 export function ResultsCharts({ columns, rows }: ResultsChartsProps) {
-  const charts = useMemo(() => detectCharts(columns, rows), [columns, rows]);
+  // Optimization (⚡ Bolt): Pre-compute chart data and memoize along with detected charts
+  // so chartData mapping isn't re-executed on every component render / tooltip hover.
+  const charts = useMemo<DetectedChartWithData[]>(() => {
+    const detected = detectCharts(columns, rows);
+    return detected.map((chart) => ({
+      ...chart,
+      chartData: rows.map((r) => ({
+        label: String(r[chart.labelCol] ?? ""),
+        value: Number(r[chart.valueCol] ?? 0),
+      })),
+    }));
+  }, [columns, rows]);
 
   if (charts.length === 0) {
     return (
@@ -125,10 +146,7 @@ export function ResultsCharts({ columns, rows }: ResultsChartsProps) {
   return (
     <div className="space-y-10 p-2">
       {charts.map((chart, ci) => {
-        const chartData = rows.map((r) => ({
-          label: String(r[chart.labelCol] ?? ""),
-          value: Number(r[chart.valueCol] ?? 0),
-        }));
+        const chartData = chart.chartData;
 
         const chartConfig = {
           value: {
