@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,15 +45,42 @@ function tokenizeSql(sql: string): Array<{ text: string; type: "keyword" | "stri
 
 export function SqlBlock({ sql, className }: SqlBlockProps) {
   const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tokens = useMemo(() => tokenizeSql(sql), [sql]);
 
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   const handleCopy = async () => {
+    let success = false;
     try {
-      await navigator.clipboard.writeText(sql);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(sql);
+        success = true;
+      } else {
+        // Fallback for non-secure contexts or unsupported clipboard API
+        const textArea = document.createElement("textarea");
+        textArea.value = sql;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        success = document.execCommand("copy");
+        textArea.remove();
+      }
     } catch {
-      // Fallback if clipboard API fails
+      success = false;
+    }
+
+    if (success) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setCopied(true);
+      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
     }
   };
 
