@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
+import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SqlBlockProps {
@@ -43,7 +44,18 @@ function tokenizeSql(sql: string): Array<{ text: string; type: "keyword" | "stri
 }
 
 export function SqlBlock({ sql, className }: SqlBlockProps) {
+  const [copied, setCopied] = useState(false);
   const tokens = useMemo(() => tokenizeSql(sql), [sql]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(sql);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback if clipboard API fails
+    }
+  };
 
   return (
     <div
@@ -55,6 +67,25 @@ export function SqlBlock({ sql, className }: SqlBlockProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
         <span className="text-xs font-medium text-violet-400 uppercase tracking-wider">SQL</span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label={copied ? "Copied SQL query to clipboard" : "Copy SQL query"}
+          title={copied ? "Copied!" : "Copy SQL"}
+          className="flex items-center gap-1.5 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[11px] text-emerald-400 font-sans font-medium">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-sans font-medium">Copy</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Code */}
