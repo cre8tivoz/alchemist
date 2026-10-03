@@ -211,16 +211,20 @@ export function SpellsScreen() {
                           <Button
                             size="icon"
                             variant="ghost"
+                            aria-label="Save spell name"
+                            title="Save name"
                             onClick={() => handleSaveEdit(spell.id)}
-                            className="h-7 w-7 text-emerald-400 hover:text-emerald-300"
+                            className="h-7 w-7 text-emerald-400 hover:text-emerald-300 focus-visible:ring-2 focus-visible:ring-emerald-500"
                           >
                             <Check className="w-3.5 h-3.5" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
+                            aria-label="Cancel editing"
+                            title="Cancel editing"
                             onClick={() => setEditingId(null)}
-                            className="h-7 w-7 text-zinc-500 hover:text-zinc-300"
+                            className="h-7 w-7 text-zinc-500 hover:text-zinc-300 focus-visible:ring-2 focus-visible:ring-violet-500"
                           >
                             <X className="w-3.5 h-3.5" />
                           </Button>
@@ -242,27 +246,30 @@ export function SpellsScreen() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label={`Run spell ${spell.name}`}
+                        title={`Run ${spell.name}`}
                         onClick={() => handleRun(spell)}
-                        className="h-7 w-7 text-zinc-400 hover:text-violet-400 hover:bg-violet-600/10"
-                        title="Run spell"
+                        className="h-7 w-7 text-zinc-400 hover:text-violet-400 hover:bg-violet-600/10 focus-visible:ring-2 focus-visible:ring-violet-500"
                       >
                         <Play className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label={`Rename spell ${spell.name}`}
+                        title={`Rename ${spell.name}`}
                         onClick={() => handleStartEdit(spell)}
-                        className="h-7 w-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
-                        title="Rename"
+                        className="h-7 w-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-violet-500"
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
+                        aria-label={`Delete spell ${spell.name}`}
+                        title={`Delete ${spell.name}`}
                         onClick={() => handleDelete(spell.id)}
-                        className="h-7 w-7 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
-                        title="Delete spell"
+                        className="h-7 w-7 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-violet-500"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -318,8 +325,11 @@ export function SpellsScreen() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
               <h2 className="text-sm font-semibold text-zinc-100">New Spell</h2>
               <button
+                type="button"
+                aria-label="Close modal"
+                title="Close"
                 onClick={() => setShowNewSpell(false)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-colors"
+                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
               >
                 <X className="w-4 h-4 text-zinc-500" />
               </button>
