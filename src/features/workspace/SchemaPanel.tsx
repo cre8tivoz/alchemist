@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   ChevronRight,
   Table,
@@ -60,9 +60,27 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
         ? "PALACE"
         : "SCHEMA";
 
-  const filteredWings = palace?.wings.filter(
-    (w) => !search || w.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Optimization (⚡ Bolt): Memoize schema filtering computations to avoid redundant
+  // search string lowercasing and array iterations on every component re-render / node toggle.
+  const searchLower = search.trim().toLowerCase();
+
+  const filteredWings = useMemo(() => {
+    if (!palace?.wings) return undefined;
+    if (!searchLower) return palace.wings;
+    return palace.wings.filter((w) => w.name.toLowerCase().includes(searchLower));
+  }, [palace?.wings, searchLower]);
+
+  const filteredTables = useMemo(() => {
+    if (!tables) return undefined;
+    if (!searchLower) return tables;
+    return tables.filter((t) => t.name.toLowerCase().includes(searchLower));
+  }, [tables, searchLower]);
+
+  const filteredCollections = useMemo(() => {
+    if (!collections) return undefined;
+    if (!searchLower) return collections;
+    return collections.filter((c) => c.name.toLowerCase().includes(searchLower));
+  }, [collections, searchLower]);
 
   return (
     <div className="w-64 lg:w-72 h-full flex flex-col bg-[#0d0d14] border-r border-white/[0.06]">
@@ -87,7 +105,7 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
       {/* Tree */}
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {dataSourceType === "chromadb" ? (
-          collections?.map((col) => (
+          filteredCollections?.map((col) => (
             <SchemaItem
               key={col.id}
               label={col.name}
@@ -163,9 +181,7 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
             </div>
           ))
         ) : (
-          tables
-            ?.filter((t) => !search || t.name.toLowerCase().includes(search.toLowerCase()))
-            .map((table) => (
+          filteredTables?.map((table) => (
               <div key={table.name}>
                 <button
                   onClick={() => toggleTable(table.name)}
