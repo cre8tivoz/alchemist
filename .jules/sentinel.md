@@ -1,5 +1,10 @@
 # Sentinel Security Journal
 
+## 2025-05-20 - AST Query Reconstruction vs String Concatenation for Safety Clauses
+**Vulnerability:** Appending ` LIMIT 1000` to raw SQL query strings (`final_sql.push_str(" LIMIT 1000")`) failed when the user query ended with a single-line comment (`-- comment`). The auto-appended `LIMIT` clause fell inside the comment block and was ignored during SQL execution, bypassing query row limits.
+**Learning:** Raw string concatenation on SQL statements containing comments or semicolons can render appended clauses inactive or syntax errors.
+**Prevention:** Reconstruct the SQL query string from the parsed AST (`stmt.to_string()`) before appending safety clauses so comments and trailing separators are stripped.
+
 ## 2025-05-19 - AST-Based AST Limit Check vs Substring Matching
 **Vulnerability:** Substring scanning for `LIMIT` in SQL validation (`contains("LIMIT")`) created false positives on queries containing words like `unlimited`, `delimiter`, or `'limited'`, causing the validator to mistakenly skip appending a safety `LIMIT 1000` clause.
 **Learning:** Raw string substring checks on SQL queries are vulnerable to false positives when identifiers or string literals match SQL keyword strings.

@@ -93,11 +93,10 @@ pub fn validate_sql(sql: &str) -> Result<ValidatedQuery, AppError> {
     };
     if !has_limit {
         was_amended = true;
-        // Remove trailing semicolons before appending
-        while final_sql.ends_with(';') {
-            final_sql.pop();
-        }
-        final_sql.push_str(&format!(" LIMIT {}", MAX_ROWS));
+        // Reconstruct query from parsed AST so trailing comments or semicolons
+        // do not comment out or neutralize the auto-appended LIMIT clause.
+        let clean_sql = stmt.to_string();
+        final_sql = format!("{} LIMIT {}", clean_sql, MAX_ROWS);
         amendment_note = Some(format!(
             "No LIMIT clause found. Added LIMIT {} automatically.",
             MAX_ROWS
@@ -228,5 +227,17 @@ mod tests {
             validate_sql("SELECT * FROM unlimited_items WHERE delimiter = 'limited'").expect("ok");
         assert!(v.was_amended);
         assert!(v.final_sql.ends_with("LIMIT 1000"));
+    }
+
+    #[test]
+    fn auto_limit_strips_trailing_comments_and_enforces_limit() {
+        // Trailing single line comment '--' or ';' must not comment out or neutralize auto-appended LIMIT
+        let v1 = validate_sql("SELECT * FROM users -- comment").expect("ok");
+        assert!(v1.was_amended);
+        assert_eq!(v1.final_sql, "SELECT * FROM users LIMIT 1000");
+
+        let v2 = validate_sql("SELECT * FROM users; -- comment").expect("ok");
+        assert!(v2.was_amended);
+        assert_eq!(v2.final_sql, "SELECT * FROM users LIMIT 1000");
     }
 }
