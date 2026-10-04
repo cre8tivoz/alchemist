@@ -5,3 +5,7 @@
 ## 2025-05-19 - Code Snippet Copy Actions with Screen Reader Feedback
 **Learning:** Code snippet components (like `SqlBlock`) without copy-to-clipboard functionality require manual text selection. When adding copy buttons to code blocks, updating `aria-label` dynamically (e.g. "Copied SQL query to clipboard") alongside temporary visual feedback ensures screen reader users receive immediate confirmation.
 **Action:** Always pair visual copy confirmation state with dynamic `aria-label` updates and `focus-visible` ring indicators on code snippet blocks.
+
+## 2025-05-20 - Collapsible Tree View Expanders Accessibility
+**Learning:** Hierarchical tree elements (such as schema panels with expandable tables, wings, or rooms) often use icon `<button>` toggles without `aria-expanded` attributes or `aria-label` describing the item being toggled. Screen readers cannot convey expansion state without `aria-expanded`.
+**Action:** Always include `aria-expanded={boolean}` and explicit `aria-label={`Toggle ${item.name}`}` on tree view expander buttons, accompanied by `focus-visible` outline rings.

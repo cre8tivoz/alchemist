@@ -116,9 +116,11 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
           filteredWings?.map((wing) => (
             <div key={wing.name}>
               <button
+                type="button"
                 onClick={() => toggleWing(wing.name)}
+                aria-expanded={expandedWings.has(wing.name)}
                 className={cn(
-                  "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors",
+                  "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
                   expandedWings.has(wing.name)
                     ? "bg-violet-600/10 text-violet-300"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
@@ -140,9 +142,11 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
                   {wing.rooms.map((room) => (
                     <div key={room.name}>
                       <button
+                        type="button"
                         onClick={() => toggleRoom(room.name)}
+                        aria-expanded={expandedRooms.has(room.name)}
                         className={cn(
-                          "flex items-center gap-2 w-full px-2.5 py-1 rounded-lg text-xs transition-colors",
+                          "flex items-center gap-2 w-full px-2.5 py-1 rounded-lg text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
                           expandedRooms.has(room.name)
                             ? "bg-white/[0.06] text-zinc-200"
                             : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
@@ -184,9 +188,11 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
           filteredTables?.map((table) => (
               <div key={table.name}>
                 <button
+                  type="button"
                   onClick={() => toggleTable(table.name)}
+                  aria-expanded={expandedTables.has(table.name)}
                   className={cn(
-                    "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors",
+                    "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
                     expandedTables.has(table.name)
                       ? "bg-violet-600/10 text-violet-300"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"

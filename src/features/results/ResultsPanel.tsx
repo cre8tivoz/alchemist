@@ -63,7 +63,9 @@ export function ResultsPanel({ onExport }: ResultsPanelProps) {
             variant="ghost"
             size="sm"
             onClick={() => onExport("csv")}
-            className="h-7 px-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
+            aria-label="Export results as CSV"
+            title="Export results as CSV"
+            className="h-7 px-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             <Download className="w-3 h-3 mr-1" />
             CSV
@@ -72,7 +74,9 @@ export function ResultsPanel({ onExport }: ResultsPanelProps) {
             variant="ghost"
             size="sm"
             onClick={() => onExport("markdown")}
-            className="h-7 px-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
+            aria-label="Export results as Markdown"
+            title="Export results as Markdown"
+            className="h-7 px-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             <FileText className="w-3 h-3 mr-1" />
             MD
@@ -81,7 +85,9 @@ export function ResultsPanel({ onExport }: ResultsPanelProps) {
             variant="ghost"
             size="sm"
             onClick={() => onExport("json")}
-            className="h-7 px-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
+            aria-label="Export results as JSON"
+            title="Export results as JSON"
+            className="h-7 px-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             <FileText className="w-3 h-3 mr-1" />
             JSON
