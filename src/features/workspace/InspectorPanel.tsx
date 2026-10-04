@@ -1,8 +1,6 @@
 import { Database, Cpu, Check, Layers } from "lucide-react";
 import { useAppStore } from "@/state/app-store";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { parseMempalace } from "@/lib/tauri";
 import type { MemPalaceStructure } from "@/lib/tauri";
 
 const safetyChecks = [
@@ -12,19 +10,16 @@ const safetyChecks = [
   { label: "Limit Applied", passed: true },
 ];
 
-export function InspectorPanel() {
+interface InspectorPanelProps {
+  // Optimization (⚡ Bolt): Accept palace prop from parent Workspace component
+  // to avoid making a duplicate parseMempalace IPC/disk call on mount.
+  palace?: MemPalaceStructure | null;
+}
+
+export function InspectorPanel({ palace }: InspectorPanelProps) {
   const activeSource = useAppStore((s) => s.activeSource);
   const dataSourceType = useAppStore((s) => s.dataSourceType);
   const activeProvider = useAppStore((s) => s.activeProvider);
-  const [palace, setPalace] = useState<MemPalaceStructure | null>(null);
-
-  useEffect(() => {
-    if (dataSourceType === "mempalace" && activeSource) {
-      parseMempalace(activeSource.path).then(setPalace).catch(() => setPalace(null));
-    } else {
-      setPalace(null);
-    }
-  }, [activeSource?.path, dataSourceType]);
 
   if (!activeSource) {
     return (

@@ -37,7 +37,8 @@ function csvCell(v: unknown): string {
 function mdCell(v: unknown): string {
   const s = String(v ?? "");
   const escaped = s.replace(/\|/g, "\\|");
-  return escaped.replace(/\r\n/g, "<br>").replace(/\r/g, "<br>").replace(/\n/g, "<br>");
+  // Optimization (⚡ Bolt): Use single regex pass for newline replacements instead of 3 chained calls
+  return escaped.replace(/\r\n|[\r\n]/g, "<br>");
 }
 
 async function exportResults(

@@ -82,7 +82,7 @@ export function Workspace() {
         <ChatPanel />
 
         {/* Right: Inspector */}
-        <InspectorPanel />
+        <InspectorPanel palace={palace} />
       </div>
     </div>
   );
