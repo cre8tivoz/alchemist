@@ -1,5 +1,10 @@
 # Sentinel Security Journal
 
+## 2025-05-21 - SQLite URI Mode Flag Bypass on Read-Only Connections
+**Vulnerability:** Opening SQLite connections using raw file paths or URIs with `OpenFlags::SQLITE_OPEN_URI` allowed query parameters like `?mode=rwc` or `?mode=rw` to override `OpenFlags::SQLITE_OPEN_READ_ONLY`, enabling write queries (`INSERT`, `CREATE TABLE`) on supposedly read-only vault connections.
+**Learning:** SQLite URI mode flags parsed from query strings override flags passed to `sqlite3_open_v2` when `SQLITE_OPEN_URI` is enabled.
+**Prevention:** Always open database connections using sanitized, un-queried filesystem paths (`extract_clean_path_str`) with strict `OpenFlags::SQLITE_OPEN_READ_ONLY` and without `SQLITE_OPEN_URI`.
+
 ## 2025-05-20 - AST Query Reconstruction vs String Concatenation for Safety Clauses
 **Vulnerability:** Appending ` LIMIT 1000` to raw SQL query strings (`final_sql.push_str(" LIMIT 1000")`) failed when the user query ended with a single-line comment (`-- comment`). The auto-appended `LIMIT` clause fell inside the comment block and was ignored during SQL execution, bypassing query row limits.
 **Learning:** Raw string concatenation on SQL statements containing comments or semicolons can render appended clauses inactive or syntax errors.

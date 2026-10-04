@@ -290,8 +290,8 @@ fn open_connection(path: &str) -> Result<Connection, AppError> {
     validate_db_path(Path::new(path))?;
 
     Ok(Connection::open_with_flags(
-        path,
-        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+        &clean_str,
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
     )?)
 }
 
@@ -940,6 +940,32 @@ mod tests {
         let conn = open_connection(&uri);
         let _ = std::fs::remove_file(&temp_file);
         assert!(conn.is_ok());
+    }
+
+    #[test]
+    fn open_connection_prevents_uri_mode_override_for_writes() {
+        let temp_file =
+            std::env::temp_dir().join(format!("test_uri_mode_{}.db", uuid::Uuid::new_v4().simple()));
+        let conn = Connection::open(&temp_file).unwrap();
+        conn.execute("CREATE TABLE t (id INT)", []).unwrap();
+        drop(conn);
+
+        let uri = format!("file://{}?mode=rwc", temp_file.display());
+        let read_conn = open_connection(&uri).expect("open_connection should succeed");
+
+        let write_res = read_conn.execute("INSERT INTO t VALUES (1)", []);
+        let _ = std::fs::remove_file(&temp_file);
+
+        assert!(
+            write_res.is_err(),
+            "Write query must fail on read-only connection"
+        );
+        let err_msg = write_res.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("readonly") || err_msg.contains("read-only"),
+            "Error message should indicate read-only database: {}",
+            err_msg
+        );
     }
 
     #[test]
