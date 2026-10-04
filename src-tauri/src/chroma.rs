@@ -224,10 +224,11 @@ pub fn get_palace_info(palace_path: &str) -> Result<PalaceInfo, AppError> {
 // ---- Internal Helpers ----
 
 fn open_chroma(path: &str) -> Result<Connection, AppError> {
+    let clean_str = crate::db::extract_clean_path_str(path);
     crate::db::validate_db_path(Path::new(path))?;
     Ok(Connection::open_with_flags(
-        path,
-        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+        &clean_str,
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
     )?)
 }
 
