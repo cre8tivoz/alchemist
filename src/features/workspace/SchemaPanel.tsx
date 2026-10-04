@@ -119,7 +119,6 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
                 type="button"
                 onClick={() => toggleWing(wing.name)}
                 aria-expanded={expandedWings.has(wing.name)}
-                aria-label={`Toggle ${wing.name} wing`}
                 className={cn(
                   "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
                   expandedWings.has(wing.name)
@@ -146,7 +145,6 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
                         type="button"
                         onClick={() => toggleRoom(room.name)}
                         aria-expanded={expandedRooms.has(room.name)}
-                        aria-label={`Toggle ${room.name} room`}
                         className={cn(
                           "flex items-center gap-2 w-full px-2.5 py-1 rounded-lg text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
                           expandedRooms.has(room.name)
@@ -193,7 +191,6 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
                   type="button"
                   onClick={() => toggleTable(table.name)}
                   aria-expanded={expandedTables.has(table.name)}
-                  aria-label={`Toggle ${table.name} table`}
                   className={cn(
                     "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
                     expandedTables.has(table.name)
