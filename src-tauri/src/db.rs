@@ -389,7 +389,10 @@ fn write_rows_to_sqlite(
     }
 
     let mut conn = Connection::open(output_path)?;
-    let columns = collect_columns(rows);
+    // Optimization (⚡ Bolt): Infer column schemas and SQLite data types in a single pass over `rows`
+    // instead of making C separate full-table passes (one per column). Columns that reach `Text`
+    // short-circuit immediately.
+    let (columns, type_strs) = collect_columns_and_types(rows);
     if columns.is_empty() {
         return Err(AppError::Validation(
             "Imported rows do not contain any columns".to_string(),
@@ -398,11 +401,12 @@ fn write_rows_to_sqlite(
 
     let column_defs: Vec<String> = columns
         .iter()
-        .map(|column| {
+        .zip(type_strs.iter())
+        .map(|(column, type_str)| {
             format!(
                 "{} {}",
                 quote_identifier(column),
-                sqlite_type_for_column(rows, column)
+                type_str
             )
         })
         .collect();
@@ -443,44 +447,55 @@ fn write_rows_to_sqlite(
     Ok(())
 }
 
-fn collect_columns(rows: &[BTreeMap<String, serde_json::Value>]) -> Vec<String> {
+/// Optimization (⚡ Bolt): Single-pass column collection and type inference.
+/// Avoids C x N iterations and redundant Map lookups across table rows.
+fn collect_columns_and_types(
+    rows: &[BTreeMap<String, serde_json::Value>],
+) -> (Vec<String>, Vec<&'static str>) {
     let mut columns = Vec::new();
-    let mut seen = std::collections::HashSet::new();
+    let mut column_indices: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut inferred_types: Vec<InferredType> = Vec::new();
+
     for row in rows {
-        for key in row.keys() {
-            if seen.insert(key) {
-                columns.push(key.clone());
+        for (key, value) in row {
+            let idx = match column_indices.get(key) {
+                Some(&i) => i,
+                None => {
+                    let i = columns.len();
+                    column_indices.insert(key.clone(), i);
+                    columns.push(key.clone());
+                    inferred_types.push(InferredType::Integer);
+                    i
+                }
+            };
+
+            // If already TEXT or value is empty/null, no type upgrade possible
+            if matches!(inferred_types[idx], InferredType::Text) || is_empty(value) {
+                continue;
+            }
+
+            match infer_value_type(value) {
+                InferredType::Text => {
+                    inferred_types[idx] = InferredType::Text;
+                }
+                InferredType::Real => {
+                    inferred_types[idx] = InferredType::Real;
+                }
+                InferredType::Integer => {}
             }
         }
     }
-    columns
-}
 
-fn sqlite_type_for_column(
-    rows: &[BTreeMap<String, serde_json::Value>],
-    column: &str,
-) -> &'static str {
-    let mut inferred = InferredType::Integer;
+    let type_strs = inferred_types
+        .into_iter()
+        .map(|t| match t {
+            InferredType::Integer => "INTEGER",
+            InferredType::Real => "REAL",
+            InferredType::Text => "TEXT",
+        })
+        .collect();
 
-    for row in rows {
-        let Some(value) = row.get(column) else {
-            continue;
-        };
-        if is_empty(value) {
-            continue;
-        }
-        match infer_value_type(value) {
-            InferredType::Text => return "TEXT",
-            InferredType::Real => inferred = InferredType::Real,
-            InferredType::Integer => {}
-        }
-    }
-
-    match inferred {
-        InferredType::Integer => "INTEGER",
-        InferredType::Real => "REAL",
-        InferredType::Text => "TEXT",
-    }
+    (columns, type_strs)
 }
 
 /// True only if `s` is a canonical integer literal (round-trips exactly).
