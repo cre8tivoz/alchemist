@@ -122,13 +122,17 @@ fn parse_rooms(rooms_raw: &serde_yaml::Value) -> (Vec<RoomStructure>, usize) {
 }
 
 pub(crate) fn validate_palace_path(path: &Path) -> Result<(), AppError> {
-    let has_yaml_ext = path
+    let raw_str = path.to_string_lossy();
+    let clean_str = crate::db::extract_clean_path_str(&raw_str);
+    let clean_path = Path::new(&clean_str);
+
+    let has_yaml_ext = clean_path
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase())
         .is_some_and(|e| e == "yaml" || e == "yml");
 
-    let has_traversal = path
+    let has_traversal = clean_path
         .components()
         .any(|c| matches!(c, std::path::Component::ParentDir));
 
@@ -143,8 +147,9 @@ pub(crate) fn validate_palace_path(path: &Path) -> Result<(), AppError> {
 }
 
 pub fn parse_palace_yaml(path: &str) -> Result<MemPalaceStructure, AppError> {
-    let p = Path::new(path);
-    if !p.exists() {
+    let clean_str = crate::db::extract_clean_path_str(path);
+    let p = Path::new(&clean_str);
+    if !p.exists() && !Path::new(path).exists() {
         return Err(AppError::NotFound(format!(
             "MemPalace config not found: {}",
             path
@@ -153,7 +158,7 @@ pub fn parse_palace_yaml(path: &str) -> Result<MemPalaceStructure, AppError> {
 
     validate_palace_path(p)?;
 
-    let content = std::fs::read_to_string(path)?;
+    let content = std::fs::read_to_string(p)?;
     let yaml_value: serde_yaml::Value = serde_yaml::from_str(&content)?;
 
     // Get the wings node: either under a "wings" key or the whole document
@@ -275,7 +280,7 @@ mod tests {
     #[test]
     fn validate_palace_path_accepts_valid_extensions() {
         assert!(validate_palace_path(Path::new("/some/path/config.yaml")).is_ok());
-        assert!(validate_palace_path(Path::new("/some/path/palace.yml")).is_ok());
+        assert!(validate_palace_path(Path::new("file:///some/path/palace.yml?mode=ro")).is_ok());
         assert!(validate_palace_path(Path::new("/SOME/PATH/PALACE.YAML")).is_ok());
     }
 
