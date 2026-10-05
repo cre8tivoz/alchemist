@@ -121,6 +121,27 @@ fn parse_rooms(rooms_raw: &serde_yaml::Value) -> (Vec<RoomStructure>, usize) {
     (rooms, raw_count)
 }
 
+pub(crate) fn validate_palace_path(path: &Path) -> Result<(), AppError> {
+    let has_yaml_ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .is_some_and(|e| e == "yaml" || e == "yml");
+
+    let has_traversal = path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir));
+
+    if has_yaml_ext && !has_traversal {
+        Ok(())
+    } else {
+        Err(AppError::Validation(format!(
+            "Invalid MemPalace file path: {}. Path must end with .yaml or .yml and not contain parent traversal.",
+            path.display()
+        )))
+    }
+}
+
 pub fn parse_palace_yaml(path: &str) -> Result<MemPalaceStructure, AppError> {
     let p = Path::new(path);
     if !p.exists() {
@@ -129,6 +150,8 @@ pub fn parse_palace_yaml(path: &str) -> Result<MemPalaceStructure, AppError> {
             path
         )));
     }
+
+    validate_palace_path(p)?;
 
     let content = std::fs::read_to_string(path)?;
     let yaml_value: serde_yaml::Value = serde_yaml::from_str(&content)?;
@@ -243,4 +266,23 @@ pub fn discover_and_parse(path: Option<&str>) -> Result<MemPalaceStructure, AppE
     Err(AppError::NotFound(
         "No MemPalace config found in ~/.mempalace/ or at the given path".to_string(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_palace_path_accepts_valid_extensions() {
+        assert!(validate_palace_path(Path::new("/some/path/config.yaml")).is_ok());
+        assert!(validate_palace_path(Path::new("/some/path/palace.yml")).is_ok());
+        assert!(validate_palace_path(Path::new("/SOME/PATH/PALACE.YAML")).is_ok());
+    }
+
+    #[test]
+    fn validate_palace_path_rejects_non_yaml_and_traversal() {
+        assert!(validate_palace_path(Path::new("/etc/passwd")).is_err());
+        assert!(validate_palace_path(Path::new("../secret.yaml")).is_err());
+        assert!(validate_palace_path(Path::new("/home/user/secret.txt")).is_err());
+    }
 }
