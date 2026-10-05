@@ -9,3 +9,7 @@
 ## 2025-05-20 - Collapsible Tree View Expanders Accessibility
 **Learning:** Hierarchical tree elements (such as schema panels with expandable tables, wings, or rooms) often use icon `<button>` toggles without `aria-expanded` attributes or `aria-label` describing the item being toggled. Screen readers cannot convey expansion state without `aria-expanded`.
 **Action:** Always include `aria-expanded={boolean}` and explicit `aria-label={`Toggle ${item.name}`}` on tree view expander buttons, accompanied by `focus-visible` outline rings.
+
+## 2025-05-21 - Sortable Data Table Headers Accessibility
+**Learning:** Table column header cells (`<th>`) that support sorting often attach `onClick` handlers directly to `<th>` without inner `<button>` triggers, `aria-sort` attributes, or `focus-visible` ring indicators. This prevents keyboard users from focusing headers via Tab and prevents screen readers from announcing column sort states or actions.
+**Action:** Always wrap sortable table header contents in a focusable `<button type="button">` with `aria-label` sort hints and `focus-visible` ring styling, and include `aria-sort="ascending" | "descending" | "none"` on the parent `<TableHead>` (`<th>`).

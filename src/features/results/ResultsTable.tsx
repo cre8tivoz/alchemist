@@ -91,21 +91,45 @@ export function ResultsTable({ columns, rows, truncated, rowCount }: ResultsTabl
                 <TableHead className="w-10 text-xs text-zinc-500 font-medium text-center">
                   #
                 </TableHead>
-                {columns.map((col, i) => (
-                  <TableHead
-                    key={col}
-                    onClick={() => handleSort(i)}
-                    className={cn(
-                      "text-xs font-medium cursor-pointer select-none whitespace-nowrap",
-                      "text-zinc-400 hover:text-zinc-200 transition-colors"
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span>{col}</span>
-                      <SortIcon colIdx={i} />
-                    </div>
-                  </TableHead>
-                ))}
+                {columns.map((col, i) => {
+                  const isSorted = sortCol === i;
+                  const sortState = isSorted
+                    ? sortDir === "asc"
+                      ? "ascending"
+                      : "descending"
+                    : "none";
+                  const sortHint =
+                    sortState === "ascending"
+                      ? "sort descending"
+                      : sortState === "descending"
+                      ? "clear sort"
+                      : "sort ascending";
+
+                  return (
+                    <TableHead
+                      key={col}
+                      aria-sort={sortState}
+                      className="p-0 text-xs font-medium whitespace-nowrap"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleSort(i)}
+                        aria-label={`${col}, ${sortHint}`}
+                        title={`${col} (${sortHint})`}
+                        className={cn(
+                          "flex items-center gap-1.5 w-full h-full px-2 py-2.5 text-left select-none transition-colors rounded-sm",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#0d0d14]",
+                          isSorted
+                            ? "text-violet-300 font-semibold"
+                            : "text-zinc-400 hover:text-zinc-200"
+                        )}
+                      >
+                        <span>{col}</span>
+                        <SortIcon colIdx={i} />
+                      </button>
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             </TableHeader>
             <TableBody>
