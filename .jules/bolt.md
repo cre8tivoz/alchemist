@@ -11,3 +11,7 @@
 ## 2025-05-20 - Prop Lifting for Asynchronous Tauri IPC File Parses
 **Learning:** When child components (e.g. `InspectorPanel`) independently call asynchronous IPC backend functions like `parseMempalace` that read and parse files from disk, rendering them inside parent views (e.g. `Workspace`) that already perform the same IPC call leads to duplicate concurrent IPC calls and disk reads. Passing parsed structures down via props eliminates redundant IPC invocations and re-renders.
 **Action:** Pass loaded dataset/schema structures as props from parent views rather than re-fetching in sibling/child panels.
+
+## 2025-05-21 - Single-Pass Tabular Schema and Type Inference
+**Learning:** Inferring SQLite column types by running a separate full table scan for each column (C columns x N rows) causes C redundant passes and map lookups across rows. Inferring types in a single pass while collecting column names—and short-circuiting as soon as a column reaches `TEXT`—reduces schema determination to O(N).
+**Action:** Infer column types and schema metadata in a single pass with early termination for widest types instead of scanning rows per column.
