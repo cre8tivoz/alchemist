@@ -48,7 +48,7 @@ Alchemist: SELECT COUNT(*) FROM users WHERE created_at >= date('now', '-30 days'
 
 ### Download
 
-Grab the latest build for your computer from [Releases](https://github.com/witchdaddylabs/alchemist/releases) — no account, no sign-up, nothing to configure. Just download and open.
+Grab the latest build for your computer from [Releases](https://github.com/cre8tivoz/alchemist/releases) — no account, no sign-up, nothing to configure. Just download and open.
 
 **🪟 Windows 10 / 11**
 Download `Alchemist_x64-setup.exe`, double-click it, and click through the installer. Alchemist then lives in your Start menu, ready to go.
@@ -97,7 +97,7 @@ Curious enough to run it from source — or build your own copy? You'll need [No
 **macOS / Linux:**
 
 ```bash
-git clone https://github.com/witchdaddylabs/alchemist.git
+git clone https://github.com/cre8tivoz/alchemist.git
 cd alchemist
 npm install
 npm run tauri dev
