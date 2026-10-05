@@ -84,5 +84,5 @@ jobs:
 
             **Why?** Ad-hoc signing (no Apple Developer account). The unlock script removes the macOS quarantine flag.
 
-            Only install from the official [Witch Daddy Labs](https://github.com/witchdaddylabs/alchemist) release.
+            Only install from the official [Witch Daddy Labs](https://github.com/cre8tivoz/alchemist) release.
           files: src-tauri/target/release/bundle/dmg/*.dmg
