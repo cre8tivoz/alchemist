@@ -364,13 +364,43 @@ fn data_dir() -> PathBuf {
     crate::paths::user_home().join(".alchemist")
 }
 
+fn write_secure_json_file(path: &PathBuf, json_content: &str) -> Result<(), String> {
+    // Validate JSON structure before writing
+    let _: serde_json::Value = serde_json::from_str(json_content)
+        .map_err(|e| format!("Invalid JSON content provided: {}", e))?;
+
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
+    }
+
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+
+    let mut file = options
+        .open(path)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    }
+
+    use std::io::Write;
+    file.write_all(json_content.as_bytes())
+        .map_err(|e| format!("Failed to write content: {}", e))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn save_spells(spells_json: String) -> Result<(), String> {
-    let dir = data_dir();
-    std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
-    let path = dir.join("spells.json");
-    std::fs::write(&path, &spells_json).map_err(|e| format!("Failed to save spells: {}", e))?;
-    Ok(())
+    let path = data_dir().join("spells.json");
+    write_secure_json_file(&path, &spells_json)
 }
 
 #[tauri::command]
@@ -384,11 +414,8 @@ pub fn load_spells() -> Result<String, String> {
 
 #[tauri::command]
 pub fn save_config(config_json: String) -> Result<(), String> {
-    let dir = data_dir();
-    std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
-    let path = dir.join("config.json");
-    std::fs::write(&path, &config_json).map_err(|e| format!("Failed to save config: {}", e))?;
-    Ok(())
+    let path = data_dir().join("config.json");
+    write_secure_json_file(&path, &config_json)
 }
 
 #[tauri::command]
@@ -429,5 +456,40 @@ pub async fn save_file_dialog(
             Ok(p)
         }
         None => Err("cancelled".to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_secure_json_file_validates_json_and_restricts_permissions() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "alchemist-app-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let test_file = temp_dir.join("config.json");
+
+        // Reject invalid JSON
+        let invalid_json = "{ invalid_json: ";
+        let res = write_secure_json_file(&test_file, invalid_json);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Invalid JSON content"));
+        assert!(!test_file.exists());
+
+        // Accept valid JSON and enforce 0o600 permissions
+        let valid_json = r#"{"theme": "dark", "fontSize": 14}"#;
+        assert!(write_secure_json_file(&test_file, valid_json).is_ok());
+        assert!(test_file.exists());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = std::fs::metadata(&test_file).expect("file metadata");
+            assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
+        }
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }
