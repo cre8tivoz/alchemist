@@ -15,3 +15,7 @@
 ## 2025-05-21 - Single-Pass Tabular Schema and Type Inference
 **Learning:** Inferring SQLite column types by running a separate full table scan for each column (C columns x N rows) causes C redundant passes and map lookups across rows. Inferring types in a single pass while collecting column names—and short-circuiting as soon as a column reaches `TEXT`—reduces schema determination to O(N).
 **Action:** Infer column types and schema metadata in a single pass with early termination for widest types instead of scanning rows per column.
+
+## 2025-05-22 - Batch Group-By Aggregation and Early Filtering in Vector DB Queries
+**Learning:** Running individual document count queries per collection in ChromaDB creates an N+1 database query pattern. Using a single `GROUP BY` query aggregates counts in 1 pass. Furthermore, pre-filtering search matches with a `HashSet` of collection segment IDs *before* fetching embedding metadata avoids unnecessary secondary SQL queries and string allocations for non-matching search results.
+**Action:** Pre-aggregate relational counts with `GROUP BY` and filter search results with hash sets prior to executing secondary metadata queries.
