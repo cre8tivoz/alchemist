@@ -71,6 +71,10 @@ pub fn discover_palace(path: &str) -> Result<PalaceDiscovery, AppError> {
 pub fn list_collections(palace_path: &str) -> Result<Vec<CollectionInfo>, AppError> {
     let conn = open_chroma_by_palace_path(palace_path)?;
 
+    // Optimization (⚡ Bolt): Pre-aggregate document counts across all collections in a single GROUP BY
+    // query instead of running N individual queries (N+1 query pattern).
+    let doc_counts = get_collection_doc_counts(&conn).unwrap_or_default();
+
     let mut stmt = conn.prepare(
         "SELECT id, name, dimension, COALESCE(config_json_str, '{}')
          FROM collections ORDER BY name",
@@ -87,8 +91,7 @@ pub fn list_collections(palace_path: &str) -> Result<Vec<CollectionInfo>, AppErr
         })?
         .filter_map(|r| r.ok())
         .map(|(id, name, dimension, config_json)| {
-            // Count docs in this collection
-            let doc_count = count_docs_in_collection(&conn, &id).unwrap_or(0);
+            let doc_count = doc_counts.get(&id).copied().unwrap_or(0);
             CollectionInfo {
                 id,
                 name,
@@ -122,10 +125,40 @@ pub fn search_documents(
         format!("\"{}\"", query.replace('"', ""))
     };
 
-    // Search FTS5, join to embeddings for segment_id, then to embedding_metadata for rich info
-    // We need to go: fts5 -> embedding_metadata -> embeddings -> collections via segment
-    // Actually, the FTS5 table maps docid to embedding_metadata rowid
-    // Let me check the FTS5 content table structure
+    // Optimization (⚡ Bolt): Pre-fetch collection segment IDs into a HashSet if collection_name is provided.
+    // This allows O(1) filtering *before* running get_embedding_metadata(), eliminating redundant
+    // metadata SQL queries and allocations for search results that would otherwise be discarded.
+    let seg_filter: Option<std::collections::HashSet<String>> = if let Some(coll_name) =
+        collection_name
+    {
+        if !coll_name.is_empty() {
+            let coll_id: Option<String> = conn
+                .query_row(
+                    "SELECT id FROM collections WHERE name = ?1",
+                    rusqlite::params![coll_name],
+                    |row| row.get(0),
+                )
+                .ok();
+
+            if let Some(cid) = coll_id {
+                let mut seg_stmt = conn.prepare("SELECT id FROM segments WHERE collection = ?1")?;
+                let seg_ids: std::collections::HashSet<String> = seg_stmt
+                    .query_map(rusqlite::params![cid], |row| {
+                        let id: String = row.get(0)?;
+                        Ok(id)
+                    })?
+                    .filter_map(|r| r.ok())
+                    .collect();
+                Some(seg_ids)
+            } else {
+                return Ok(Vec::new());
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     let sql = r#"SELECT
             efs.rowid,
@@ -138,10 +171,9 @@ pub fn search_documents(
         JOIN embeddings emb ON emb.id = em.id
         WHERE embedding_fulltext_search MATCH ?
         ORDER BY rank
-        LIMIT ?"#
-        .to_string();
+        LIMIT ?"#;
 
-    let mut stmt = conn.prepare(&sql)?;
+    let mut stmt = conn.prepare(sql)?;
     let results: Vec<SearchResult> = stmt
         .query_map(rusqlite::params![fts_query, max_results as i64], |row| {
             let _fts_rowid: i64 = row.get(0)?;
@@ -153,8 +185,15 @@ pub fn search_documents(
             Ok((embed_id, document_text, segment_id, created_at))
         })?
         .filter_map(|r| r.ok())
+        .filter(|(_, _, segment_id, _)| {
+            if let Some(ref seg_set) = seg_filter {
+                seg_set.contains(segment_id)
+            } else {
+                true
+            }
+        })
         .map(|(embed_id, doc_text, segment_id, created_at)| {
-            // Gather metadata for this embedding
+            // Gather metadata for this embedding only after passing collection filter
             let metadata = get_embedding_metadata(&conn, embed_id).unwrap_or_default();
 
             let relevance_hint = doc_text.chars().take(200).collect::<String>();
@@ -174,38 +213,6 @@ pub fn search_documents(
             }
         })
         .collect();
-
-    // If we have a collection filter, filter by segment -> collection mapping
-    if let Some(coll_name) = collection_name {
-        if !coll_name.is_empty() {
-            // Find the collection by name
-            let coll_id: Option<String> = conn
-                .query_row(
-                    "SELECT id FROM collections WHERE name = ?1",
-                    rusqlite::params![coll_name],
-                    |row| row.get(0),
-                )
-                .ok();
-
-            if let Some(cid) = coll_id {
-                // Get segment IDs for this collection
-                let mut seg_stmt = conn.prepare("SELECT id FROM segments WHERE collection = ?1")?;
-                let seg_ids: Vec<String> = seg_stmt
-                    .query_map(rusqlite::params![cid], |row| {
-                        let id: String = row.get(0)?;
-                        Ok(id)
-                    })?
-                    .filter_map(|r| r.ok())
-                    .collect();
-
-                let filtered: Vec<SearchResult> = results
-                    .into_iter()
-                    .filter(|r| seg_ids.contains(&r.segment_id))
-                    .collect();
-                return Ok(filtered);
-            }
-        }
-    }
 
     Ok(results)
 }
@@ -250,16 +257,29 @@ fn open_chroma_by_palace_path(palace_path: &str) -> Result<Connection, AppError>
     open_chroma(&db_path.to_string_lossy())
 }
 
-fn count_docs_in_collection(conn: &Connection, collection_id: &str) -> Result<usize, AppError> {
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(DISTINCT e.id)
+/// Optimization (⚡ Bolt): Pre-aggregate document counts per collection in a single query pass.
+fn get_collection_doc_counts(
+    conn: &Connection,
+) -> Result<std::collections::HashMap<String, usize>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT s.collection, COUNT(DISTINCT e.id)
          FROM embeddings e
          JOIN segments s ON e.segment_id = s.id
-         WHERE s.collection = ?1",
-        rusqlite::params![collection_id],
-        |row| row.get(0),
+         GROUP BY s.collection",
     )?;
-    Ok(count as usize)
+
+    let mut counts = std::collections::HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        let collection_id: String = row.get(0)?;
+        let count: i64 = row.get(1)?;
+        Ok((collection_id, count as usize))
+    })?;
+
+    for (col_id, count) in rows.flatten() {
+        counts.insert(col_id, count);
+    }
+
+    Ok(counts)
 }
 
 fn get_embedding_metadata(
@@ -298,5 +318,58 @@ mod tests {
         let err = open_chroma(&bad_file.to_string_lossy()).unwrap_err();
         let _ = std::fs::remove_file(&bad_file);
         assert!(matches!(err, AppError::Validation(_)));
+    }
+
+    #[test]
+    fn test_list_collections_and_search_documents() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("chroma_test_{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let chroma_db = temp_dir.join("chroma.sqlite3");
+
+        let conn = Connection::open(&chroma_db).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE collections (id TEXT PRIMARY KEY, name TEXT, dimension INTEGER, config_json_str TEXT);
+             CREATE TABLE segments (id TEXT PRIMARY KEY, collection TEXT);
+             CREATE TABLE embeddings (id INTEGER PRIMARY KEY, segment_id TEXT, created_at TEXT);
+             CREATE TABLE embedding_metadata (id INTEGER, key TEXT, string_value TEXT, int_value INTEGER, float_value REAL);
+             CREATE VIRTUAL TABLE embedding_fulltext_search USING fts5(string_value, tokenize='trigram');
+
+             INSERT INTO collections VALUES ('col1', 'recipes', 1536, '{}');
+             INSERT INTO collections VALUES ('col2', 'notes', 1536, '{}');
+
+             INSERT INTO segments VALUES ('seg1', 'col1');
+             INSERT INTO segments VALUES ('seg2', 'col2');
+
+             INSERT INTO embeddings VALUES (1, 'seg1', '2025-01-01');
+             INSERT INTO embeddings VALUES (2, 'seg2', '2025-01-01');
+
+             INSERT INTO embedding_metadata VALUES (1, 'chroma:document', 'potion recipe for speed', NULL, NULL);
+             INSERT INTO embedding_metadata VALUES (2, 'chroma:document', 'meeting notes about speed', NULL, NULL);
+
+             INSERT INTO embedding_fulltext_search(rowid, string_value) VALUES (1, 'potion recipe for speed');
+             INSERT INTO embedding_fulltext_search(rowid, string_value) VALUES (2, 'meeting notes about speed');"
+        )
+        .unwrap();
+        drop(conn);
+
+        let path_str = temp_dir.to_string_lossy().to_string();
+
+        let collections = list_collections(&path_str).expect("list_collections");
+        assert_eq!(collections.len(), 2);
+        let col1 = collections.iter().find(|c| c.name == "recipes").unwrap();
+        assert_eq!(col1.document_count, 1);
+
+        // Search across all collections
+        let results_all = search_documents(&path_str, "speed", None, 10).expect("search all");
+        assert_eq!(results_all.len(), 2);
+
+        // Search with collection filter
+        let results_filtered =
+            search_documents(&path_str, "speed", Some("recipes"), 10).expect("search filtered");
+        assert_eq!(results_filtered.len(), 1);
+        assert_eq!(results_filtered[0].segment_id, "seg1");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

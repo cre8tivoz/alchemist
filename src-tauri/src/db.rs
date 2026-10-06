@@ -402,13 +402,7 @@ fn write_rows_to_sqlite(
     let column_defs: Vec<String> = columns
         .iter()
         .zip(type_strs.iter())
-        .map(|(column, type_str)| {
-            format!(
-                "{} {}",
-                quote_identifier(column),
-                type_str
-            )
-        })
+        .map(|(column, type_str)| format!("{} {}", quote_identifier(column), type_str))
         .collect();
     conn.execute(
         &format!(
@@ -453,7 +447,8 @@ fn collect_columns_and_types(
     rows: &[BTreeMap<String, serde_json::Value>],
 ) -> (Vec<String>, Vec<&'static str>) {
     let mut columns = Vec::new();
-    let mut column_indices: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut column_indices: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut inferred_types: Vec<InferredType> = Vec::new();
 
     for row in rows {
@@ -959,8 +954,10 @@ mod tests {
 
     #[test]
     fn open_connection_prevents_uri_mode_override_for_writes() {
-        let temp_file =
-            std::env::temp_dir().join(format!("test_uri_mode_{}.db", uuid::Uuid::new_v4().simple()));
+        let temp_file = std::env::temp_dir().join(format!(
+            "test_uri_mode_{}.db",
+            uuid::Uuid::new_v4().simple()
+        ));
         let conn = Connection::open(&temp_file).unwrap();
         conn.execute("CREATE TABLE t (id INT)", []).unwrap();
         drop(conn);
