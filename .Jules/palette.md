@@ -13,3 +13,7 @@
 ## 2025-05-21 - Sortable Data Table Headers Accessibility
 **Learning:** Table column header cells (`<th>`) that support sorting often attach `onClick` handlers directly to `<th>` without inner `<button>` triggers, `aria-sort` attributes, or `focus-visible` ring indicators. This prevents keyboard users from focusing headers via Tab and prevents screen readers from announcing column sort states or actions.
 **Action:** Always wrap sortable table header contents in a focusable `<button type="button">` with `aria-label` sort hints and `focus-visible` ring styling, and include `aria-sort="ascending" | "descending" | "none"` on the parent `<TableHead>` (`<th>`).
+
+## 2025-05-22 - Interactive Card Elements Focus Visuals and ARIA Labels
+**Learning:** List items styled as clickable cards (`role="button"`, `tabIndex={0}`) without explicit `aria-label` or `focus-visible` ring styles are inaccessible via keyboard navigation and fail to announce concise summary context to screen readers.
+**Action:** Always add explicit `aria-label` describing the item and action, alongside `focus-visible:ring-2` styling on interactive card containers.

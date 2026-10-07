@@ -43,7 +43,8 @@ export function VaultCard({ name, type, metadata, onClick, onRemove }: VaultCard
       tabIndex={0}
       onClick={onClick}
       onKeyDown={handleKeyDown}
-      className="group relative flex items-center gap-3 p-3 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all text-left w-full cursor-pointer"
+      aria-label={`Open ${name} database, ${metadata}`}
+      className="group relative flex items-center gap-3 p-3 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all text-left w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#0b0b10]"
     >
       {/* Icon */}
       <div className="p-2 rounded-md bg-purple-500/10 text-purple-400">
@@ -82,7 +83,7 @@ export function VaultCard({ name, type, metadata, onClick, onRemove }: VaultCard
                 setIsOpen(false);
                 onClick();
               }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
             >
               <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
               Open Database
@@ -95,7 +96,7 @@ export function VaultCard({ name, type, metadata, onClick, onRemove }: VaultCard
                   setIsOpen(false);
                   onRemove();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               >
                 <Trash2 className="w-3.5 h-3.5 text-red-400" />
                 Remove from Recents
