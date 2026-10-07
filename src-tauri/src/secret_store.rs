@@ -62,7 +62,7 @@ fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
 pub fn store_key(account: &str, password: &str) -> Result<(), String> {
     let clean_password = password.trim();
     if clean_password.is_empty() {
-        return Err("API key cannot be empty or whitespace".to_string());
+        return delete_key(account);
     }
 
     // Keyring attempt - ignore errors completely to prevent failing if system keyring is unavailable
@@ -171,11 +171,14 @@ mod tests {
 
         let _ = delete_key(test_account);
 
-        // Reject empty or whitespace-only keys
-        assert!(store_key(test_account, "").is_err());
-        assert!(store_key(test_account, "   \n\t  ").is_err());
+        // Storing empty or whitespace-only keys deletes/clears the key
+        assert!(store_key(test_account, "\n  sk_live_123456789  \r\n").is_ok());
+        assert!(has_key(test_account));
 
-        // Trim leading/trailing whitespace and newlines
+        assert!(store_key(test_account, "   \n\t  ").is_ok());
+        assert!(!has_key(test_account));
+
+        // Trim leading/trailing whitespace and newlines when saving non-empty key
         assert!(store_key(test_account, "\n  sk_live_123456789  \r\n").is_ok());
         let retrieved = get_key(test_account).expect("retrieve key");
         assert_eq!(retrieved, "sk_live_123456789");
