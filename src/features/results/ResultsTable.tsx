@@ -151,20 +151,26 @@ export function ResultsTable({ columns, rows, truncated, rowCount }: ResultsTabl
                     <TableCell className="text-xs text-zinc-600 font-mono text-center align-top pt-3">
                       {ri + 1}
                     </TableCell>
-                    {columns.map((_col, ci) => (
-                      <TableCell
-                        key={`${ri}-${ci}`}
-                        className={cn(
-                          "text-xs py-2.5 whitespace-nowrap max-w-[min(250px,60vw)] truncate",
-                          row[ci] === null || row[ci] === undefined
-                            ? "text-zinc-700 italic"
-                            : "text-zinc-300"
-                        )}
-                        title={formatValue(row[ci])}
-                      >
-                        {formatValue(row[ci])}
-                      </TableCell>
-                    ))}
+                    {/* Optimization (⚡ Bolt): Format cell value once per cell instead of calling formatValue twice */}
+                    {/* (for title and children) and use ci as key to avoid `${ri}-${ci}` string allocations per cell. */}
+                    {columns.map((_col, ci) => {
+                      const cellVal = row[ci];
+                      const formattedVal = formatValue(cellVal);
+                      return (
+                        <TableCell
+                          key={ci}
+                          className={cn(
+                            "text-xs py-2.5 whitespace-nowrap max-w-[min(250px,60vw)] truncate",
+                            cellVal === null || cellVal === undefined
+                              ? "text-zinc-700 italic"
+                              : "text-zinc-300"
+                          )}
+                          title={formattedVal}
+                        >
+                          {formattedVal}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 ))
               )}
