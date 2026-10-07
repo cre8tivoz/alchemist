@@ -60,14 +60,19 @@ fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
 /// Store an API key.
 /// Tries system keyring (silently ignores errors) and always writes to local ~/.alchemist/secrets.json using account as key.
 pub fn store_key(account: &str, password: &str) -> Result<(), String> {
+    let clean_password = password.trim();
+    if clean_password.is_empty() {
+        return delete_key(account);
+    }
+
     // Keyring attempt - ignore errors completely to prevent failing if system keyring is unavailable
     if let Ok(entry) = Entry::new(KEYCHAIN_SERVICE, account) {
-        let _ = entry.set_password(password);
+        let _ = entry.set_password(clean_password);
     }
 
     // Always write to local fallback file
     let mut secrets = load_secrets();
-    secrets.insert(account.to_string(), password.to_string());
+    secrets.insert(account.to_string(), clean_password.to_string());
     save_secrets(&secrets)
 }
 
@@ -77,8 +82,9 @@ pub fn get_key(account: &str) -> Result<String, String> {
     // Try keyring first
     if let Ok(entry) = Entry::new(KEYCHAIN_SERVICE, account) {
         if let Ok(password) = entry.get_password() {
-            if !password.trim().is_empty() {
-                return Ok(password.trim().to_string());
+            let trimmed = password.trim();
+            if !trimmed.is_empty() {
+                return Ok(trimmed.to_string());
             }
         }
     }
@@ -86,10 +92,13 @@ pub fn get_key(account: &str) -> Result<String, String> {
     // Fallback to local file
     let secrets = load_secrets();
     if let Some(key) = secrets.get(account) {
-        Ok(key.clone())
-    } else {
-        Err(format!("No key stored for '{}'", account))
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return Ok(trimmed.to_string());
+        }
     }
+
+    Err(format!("No key stored for '{}'", account))
 }
 
 /// Delete an API key from both keyring (best effort) and local secrets file.
@@ -152,6 +161,28 @@ mod tests {
         let _ = store_key(test_account, "secret123");
         let metadata = fs::metadata(secrets_path()).expect("secrets file exists");
         assert_eq!(metadata.permissions().mode() & 0o777, 0o600);
+        let _ = delete_key(test_account);
+    }
+
+    #[test]
+    fn test_secret_store_sanitization_and_validation() {
+        let _guard = TEST_LOCK.lock().unwrap();
+        let test_account = "test_account_sanitization";
+
+        let _ = delete_key(test_account);
+
+        // Storing empty or whitespace-only keys deletes/clears the key
+        assert!(store_key(test_account, "\n  sk_live_123456789  \r\n").is_ok());
+        assert!(has_key(test_account));
+
+        assert!(store_key(test_account, "   \n\t  ").is_ok());
+        assert!(!has_key(test_account));
+
+        // Trim leading/trailing whitespace and newlines when saving non-empty key
+        assert!(store_key(test_account, "\n  sk_live_123456789  \r\n").is_ok());
+        let retrieved = get_key(test_account).expect("retrieve key");
+        assert_eq!(retrieved, "sk_live_123456789");
+
         let _ = delete_key(test_account);
     }
 }
