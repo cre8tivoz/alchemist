@@ -400,9 +400,11 @@ export function VaultScreen() {
                 type="button"
                 onClick={() => handleLoadDemo(demo.id)}
                 disabled={isOpening}
+                aria-label={`Load ${demo.name} demo database, ${demo.difficulty} difficulty, ${demo.summary}`}
                 className={cn(
                   "text-left rounded-lg border border-white/[0.08] bg-white/[0.03] p-4",
                   "hover:border-violet-400/30 hover:bg-violet-500/[0.06] transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 focus-visible:ring-offset-[#0b0b10]",
                   "disabled:opacity-60 disabled:cursor-not-allowed"
                 )}
               >
