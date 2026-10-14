@@ -554,6 +554,7 @@ export function ChatPanel() {
         <div className="flex items-center gap-2 max-w-3xl mx-auto">
           <div className="flex-1 relative">
             <Input
+              aria-label="Ask your database a question"
               placeholder={
                 activeSource
                   ? "Ask your database anything..."
