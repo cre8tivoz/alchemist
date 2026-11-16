@@ -67,6 +67,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Alchemist-dmg
+          retention-days: 1
           path: src-tauri/target/release/bundle/dmg/*.dmg
 
       - name: Create Release
