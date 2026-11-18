@@ -161,11 +161,11 @@ export function ResultsCharts({ columns, rows }: ResultsChartsProps) {
         return (
           <div
             key={ci}
-            className="rounded-xl border border-white/[0.06] bg-[#0D0B14] p-6"
+            className="rounded-xl border border-border bg-background p-6"
           >
             <div className="flex items-center gap-2 mb-5">
               {chartTypeIcons[chart.type]}
-              <h4 className="text-sm font-medium text-zinc-300">{chart.label}</h4>
+              <h4 className="text-sm font-heading font-medium text-foreground">{chart.label}</h4>
             </div>
             <div className="h-[320px]">
               {chart.type === "bar" && (
@@ -173,16 +173,16 @@ export function ResultsCharts({ columns, rows }: ResultsChartsProps) {
                   <BarChart data={chartData}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="rgba(255,255,255,0.06)"
+                      stroke="var(--secondary)"
                     />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 11, fill: "#71717a" }}
-                      axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                      axisLine={{ stroke: "var(--border)" }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: "#71717a" }}
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                       axisLine={false}
                       tickLine={false}
                     />
@@ -204,16 +204,16 @@ export function ResultsCharts({ columns, rows }: ResultsChartsProps) {
                   <LineChart data={chartData}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="rgba(255,255,255,0.06)"
+                      stroke="var(--secondary)"
                     />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 11, fill: "#71717a" }}
-                      axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                      axisLine={{ stroke: "var(--border)" }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: "#71717a" }}
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                       axisLine={false}
                       tickLine={false}
                     />
