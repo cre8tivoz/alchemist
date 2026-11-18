@@ -87,12 +87,12 @@ export function SqlBlock({ sql, className }: SqlBlockProps) {
   return (
     <div
       className={cn(
-        "relative rounded-xl bg-[#0a0a0f] border border-white/[0.08] overflow-hidden font-['JetBrains_Mono'] text-sm leading-relaxed",
+        "relative rounded-xl bg-background border border-border overflow-hidden font-mono text-sm leading-relaxed",
         className
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] bg-white/[0.02]">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-card/50">
         <span className="text-xs font-medium text-violet-400 uppercase tracking-wider">SQL</span>
         <button
           type="button"

@@ -14,7 +14,7 @@ export function Sidebar() {
   const setActiveView = useAppStore((s) => s.setActiveView);
 
   return (
-    <aside className="flex flex-col w-[72px] lg:w-32 h-full bg-[#0d0d14] border-r border-white/[0.06] py-6 items-center shrink-0">
+    <aside className="flex flex-col w-[72px] lg:w-32 h-full bg-card border-r border-border py-6 items-center shrink-0">
       {/* Top logo */}
       <div className="mb-8 flex flex-col items-center gap-1">
         <svg
@@ -46,7 +46,7 @@ export function Sidebar() {
                 "flex items-center justify-center lg:justify-start gap-3 h-10 w-full rounded-lg transition-all",
                 isActive
                   ? "bg-violet-600/20 text-violet-300 border border-violet-500/20 shadow-[0_0_12px_rgba(139,92,246,0.08)]"
-                  : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
               )}
             >
               <Icon className="w-[18px] h-[18px] shrink-0" />
@@ -65,7 +65,7 @@ export function Sidebar() {
       <div className="flex flex-col items-center gap-1.5">
         <svg
           viewBox="0 0 20 20"
-          className="w-4 h-4 text-zinc-500"
+          className="w-4 h-4 text-muted-foreground/80"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
@@ -74,10 +74,10 @@ export function Sidebar() {
           <circle cx="10" cy="12" r="2.5" />
         </svg>
         <div className="text-center">
-          <p className="text-[9px] font-medium text-zinc-600 uppercase tracking-[0.12em] leading-tight">
+          <p className="text-[9px] font-medium text-muted-foreground/80 uppercase tracking-[0.12em] leading-tight">
             Witch Daddy
           </p>
-          <p className="text-[7px] font-medium text-zinc-600 uppercase tracking-[0.2em]">
+          <p className="text-[7px] font-medium text-muted-foreground/70 uppercase tracking-[0.2em]">
             Labs
           </p>
         </div>

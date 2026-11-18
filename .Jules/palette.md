@@ -17,3 +17,9 @@
 ## 2025-05-22 - Interactive Card Elements Focus Visuals and ARIA Labels
 **Learning:** List items styled as clickable cards (`role="button"`, `tabIndex={0}`) without explicit `aria-label` or `focus-visible` ring styles are inaccessible via keyboard navigation and fail to announce concise summary context to screen readers.
 **Action:** Always add explicit `aria-label` describing the item and action, alongside `focus-visible:ring-2` styling on interactive card containers.
+
+## 2026-11-18 - [DESIGN] Semantic Design Token Alignment in Sidebar, SqlBlock, and ResultsCharts
+**Pillar:** design
+**PR:** #69
+**Learning:** Components such as `Sidebar`, `SqlBlock`, and `ResultsCharts` bypassed the CSS custom properties defined in `src/styles/globals.css` (`--background`, `--card`, `--secondary`, `--border`, `--muted-foreground`, `--font-mono`, `--font-heading`) in favor of hardcoded hex/zinc colors (`#0d0d14`, `#0a0a0f`, `#71717a`, `text-zinc-600`) and arbitrary font classes (`font-['JetBrains_Mono']`), reducing axis/brand text contrast and drifting from `docs/design_system.md`.
+**Action:** Use semantic Tailwind/CSS theme tokens (`bg-background`, `bg-card`, `border-border`, `text-muted-foreground`, `font-mono`, `font-heading`, and `var(--secondary)` / `var(--muted-foreground)` for Recharts strokes/ticks) instead of hardcoded hex or zinc shades.
